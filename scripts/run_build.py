@@ -1,7 +1,8 @@
 """構築先(dst)で build を実行し、ログを回収する。
 
-desired_state/build_targets.json の定義に従い、リモートの作業ディレクトリで
-ビルドコマンドを順に実行する。stdout/stderr と終了コードを build_env/logs へ
+desired_state/build_targets.local.json の定義に従い、リモートの作業ディレクトリ
+でビルドコマンドを順に実行する。環境固有値（サーバ・パス等）を含む定義は Git
+管理外の *.local.json に置く。stdout/stderr と終了コードを build_env/logs へ
 保存する。エラーになった箇所を調査 → 環境を整える → 再実行、のループを回す
 ための中核スクリプト。
 
@@ -23,13 +24,25 @@ from core.ssh import SSHSession  # noqa: E402
 
 
 def _load_targets() -> dict:
-    path = DESIRED_STATE_DIR / "build_targets.json"
-    if not path.exists():
-        sample = DESIRED_STATE_DIR / "build_targets.sample.json"
-        raise FileNotFoundError(
-            f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。"
-        )
-    return load_json(path)
+    """build ターゲット定義を読み込む。
+
+    環境固有値（サーバ名・作業ディレクトリ・VERSION_MNG 等）はリポジトリに
+    コミットしない方針のため、実体は Git 管理外の *.local.json に置く。
+    読み込み順は次の通り:
+      1. build_targets.local.json（実体・.gitignore 対象）を最優先
+      2. 後方互換として build_targets.json があれば読む
+    どちらも無ければ、local ファイルの作成を促すエラーにする。
+    """
+    local_path = DESIRED_STATE_DIR / "build_targets.local.json"
+    legacy_path = DESIRED_STATE_DIR / "build_targets.json"
+    if local_path.exists():
+        return load_json(local_path)
+    if legacy_path.exists():
+        return load_json(legacy_path)
+    raise FileNotFoundError(
+        f"{local_path.name} がありません。環境固有値を含む build 定義は "
+        f"{local_path.name}（Git 管理外）に作成してください。"
+    )
 
 
 # コンパイル/リンクの失敗を示す痕跡。終了コードが 0 でも、これらが stderr に

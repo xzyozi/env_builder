@@ -228,6 +228,8 @@ __marimo__/
 inventory/servers.json
 inventory/*.local.json
 desired_state/*.local.json
+# build 定義の実体（環境固有値を含む）はコミットしない。実体は *.local.json に置く。
+desired_state/build_targets.json
 
 # sample ファイルもコミットしない（本来は build 用ディレクトリ側に作成する）。
 *.sample.json
