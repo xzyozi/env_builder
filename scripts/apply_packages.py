@@ -5,7 +5,7 @@ Ansible の package タスク相当。既に導入済みならスキップし、
 
 使い方:
     uv run python scripts/apply_packages.py --check      # 差分確認のみ
-    uv run python scripts/apply_packages.py              # 適用（要 sudo 権限）
+    uv run python scripts/apply_packages.py              # 適用（dst は root ログイン前提）
     uv run python scripts/apply_packages.py --target dst
 """
 
@@ -61,7 +61,8 @@ def main() -> int:
             logger.info("--check 指定のため適用しません。")
             return 0
 
-        install_cmd = f"sudo {pm} install -y " + " ".join(missing)
+        # sudo は使わない方針。dst は root でログインしている前提。
+        install_cmd = f"{pm} install -y " + " ".join(missing)
         logger.info("インストールを実行します: %s", install_cmd)
         res = ssh.run(install_cmd, timeout=1800)
         if res.ok:

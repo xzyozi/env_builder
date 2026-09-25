@@ -223,11 +223,14 @@ __marimo__/
 # Kiro のローカル作業ログ（lessons 等）はコミットしない
 .kiro/
 
-# 機密情報を含む設定の実体ファイルは除外し、.sample のみコミットする。
+# 機密情報を含む設定の実体ファイルは除外する。
 # ホスト名・ユーザー名・パスワード・鍵などは実体ファイルに閉じ込める。
 inventory/servers.json
 inventory/*.local.json
 desired_state/*.local.json
+
+# sample ファイルもコミットしない（本来は build 用ディレクトリ側に作成する）。
+*.sample.json
 
 # 秘密鍵・認証情報
 *.pem
@@ -236,10 +239,13 @@ desired_state/*.local.json
 secrets/
 .secrets/
 
-# 作業エリア（成果物・ログ・取得物）はコミットしない
-build_env/logs/
-build_env/src_snapshot/
-build_env/artifacts/
-# ただし作業ディレクトリ自体は .gitkeep で保持する（下の否定で救済）
-!build_env/
+# 作業エリア（成果物・ログ・取得物・sample/TTL等の機密）はコミットしない。
+# build_env 配下は丸ごと除外し、ディレクトリ保持用の .gitkeep だけ救済する。
+build_env/*
+!build_env/logs/
+!build_env/src_snapshot/
+!build_env/artifacts/
+build_env/logs/*
+build_env/src_snapshot/*
+build_env/artifacts/*
 !build_env/**/.gitkeep

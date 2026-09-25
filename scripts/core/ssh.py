@@ -72,56 +72,63 @@ def _connect_one(
 class SSHSession:
     """踏み台越しに1ホストへ接続するセッション。
 
-    with 文で使う。proxy_jump が指定されていれば踏み台へ先に接続し、
-    そのチャネル(sock)経由で目的ホストへ繋ぐ。
+    with 文で使う。proxy_jump（経由順のキー列）が指定されていれば、
+    近い踏み台から順に接続し、各段のチャネル(sock)を次段へ引き渡して
+    多段に潜る（OpenSSH の ProxyJump チェーン相当）。
+
+    各段は独立した SSH チャネルとして張られ、run() は常に最終ホスト上で
+    コマンドを実行する。TTL のように「シェルに ssh を打ち込んで潜る」方式
+    ではないため、「今どこにいるか」を見失わない。
     """
 
     def __init__(self, inventory: Inventory, target: str):
         self.inventory = inventory
         self.target = target
-        self._bastion: Optional[paramiko.SSHClient] = None
+        # 踏み台を含む接続済みクライアントを接続順に保持し、逆順で閉じる。
+        self._chain: list[paramiko.SSHClient] = []
         self._client: Optional[paramiko.SSHClient] = None
 
     def __enter__(self) -> "SSHSession":
         spec = self.inventory.get(self.target)
+
         sock = None
-        if spec.proxy_jump:
-            bastion_spec = self.inventory.get(spec.proxy_jump)
-            self._bastion = _connect_one(bastion_spec)
-            transport = self._bastion.get_transport()
-            # 踏み台上で目的ホストへの direct-tcpip チャネルを開く
-            sock = transport.open_channel(
+        prev_transport = None
+        # proxy_jump を近い踏み台から順に張っていく。
+        hop_specs = [self.inventory.get(h) for h in spec.proxy_jump]
+        # 次に繋ぐ相手（踏み台の次段 or 最終ホスト）のアドレスを決めるため、
+        # 経由チェーン + 最終ホストを1本の列にする。
+        route = hop_specs + [spec]
+        for i, hop in enumerate(hop_specs):
+            client = _connect_one(hop, sock=sock)
+            self._chain.append(client)
+            prev_transport = client.get_transport()
+            # この踏み台上から「次のホスト」への direct-tcpip チャネルを開く
+            next_host = route[i + 1]
+            sock = prev_transport.open_channel(
                 "direct-tcpip",
-                (spec.host, spec.port),
+                (next_host.host, next_host.port),
                 ("127.0.0.1", 0),
             )
+
         self._client = _connect_one(spec, sock=sock)
         return self
 
     def __exit__(self, *exc) -> None:
         if self._client:
             self._client.close()
-        if self._bastion:
-            self._bastion.close()
-
-    def _wrap_become(self, command: str) -> str:
-        """become_user が指定されていればユーザー切り替えでラップする。"""
-        spec = self.inventory.get(self.target)
-        if not spec.become_user:
-            return command
-        # コマンドをシングルクォートで安全に包む
-        escaped = command.replace("'", "'\\''")
-        if spec.become_method == "su":
-            return f"su - {spec.become_user} -c '{escaped}'"
-        # 既定は sudo
-        return f"sudo -iu {spec.become_user} bash -lc '{escaped}'"
+        # 踏み台は接続と逆順で閉じる
+        for client in reversed(self._chain):
+            client.close()
 
     def run(self, command: str, timeout: int = 600) -> SSHResult:
-        """リモートで1コマンドを実行し結果を返す。"""
+        """リモートで1コマンドを実行し結果を返す。
+
+        権限昇格(sudo/su)は行わない方針。root 権限が必要な操作は、
+        inventory で root ユーザーとしてログインするサーバ定義を使う。
+        """
         if self._client is None:
             raise RuntimeError("セッションが未接続です。with 文で使ってください。")
-        full = self._wrap_become(command)
-        stdin, stdout, stderr = self._client.exec_command(full, timeout=timeout)
+        stdin, stdout, stderr = self._client.exec_command(command, timeout=timeout)
         out = stdout.read().decode("utf-8", errors="replace")
         err = stderr.read().decode("utf-8", errors="replace")
         code = stdout.channel.recv_exit_status()
