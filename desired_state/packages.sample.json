@@ -1,0 +1,22 @@
+{
+  "//": "構築先に導入すべき OSS パッケージの『あるべき状態』を宣言する。Ansible の package タスク相当。apply_packages が冪等に適用する。",
+  "package_manager": "dnf",
+  "packages": [
+    {
+      "name": "gcc",
+      "//": "ビルドに必要な例。probe_src の結果を見ながら追記する。",
+      "state": "present"
+    },
+    {
+      "name": "make",
+      "state": "present"
+    }
+  ],
+  "repositories": [
+    {
+      "//": "追加リポジトリが必要な場合に定義（例: EPEL）。不要なら空配列のまま。",
+      "name": "",
+      "baseurl": ""
+    }
+  ]
+}
