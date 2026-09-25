@@ -223,11 +223,14 @@ __marimo__/
 # Kiro のローカル作業ログ（lessons 等）はコミットしない
 .kiro/
 
-# 機密情報を含む設定の実体ファイルは除外し、.sample のみコミットする。
+# 機密情報を含む設定の実体ファイルは除外する。
 # ホスト名・ユーザー名・パスワード・鍵などは実体ファイルに閉じ込める。
 inventory/servers.json
 inventory/*.local.json
 desired_state/*.local.json
+
+# sample ファイルもコミットしない（本来は build 用ディレクトリ側に作成する）。
+*.sample.json
 
 # 秘密鍵・認証情報
 *.pem
