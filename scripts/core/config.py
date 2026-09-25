@@ -65,7 +65,9 @@ class ServerSpec:
     host: str
     user: str
     port: int = 22
-    proxy_jump: Optional[str] = None
+    # 多段の踏み台に対応するため、経由順のキー列で持つ（近い踏み台から順）。
+    # 例: ["gateway", "host"] なら local -> gateway -> host -> このサーバ。
+    proxy_jump: list = field(default_factory=list)
     auth: AuthSpec = field(default_factory=AuthSpec)
 
     @classmethod
@@ -76,12 +78,20 @@ class ServerSpec:
             key_path=auth_d.get("key_path"),
             password_env=auth_d.get("password_env"),
         )
+        # proxy_jump は文字列（単一）とリスト（多段）の両方を受け付ける。
+        raw_pj = d.get("proxy_jump")
+        if raw_pj is None:
+            proxy_jump: list = []
+        elif isinstance(raw_pj, str):
+            proxy_jump = [raw_pj]
+        else:
+            proxy_jump = list(raw_pj)
         return cls(
             name=name,
             host=d["host"],
             user=d["user"],
             port=int(d.get("port", 22)),
-            proxy_jump=d.get("proxy_jump"),
+            proxy_jump=proxy_jump,
             auth=auth,
         )
 
