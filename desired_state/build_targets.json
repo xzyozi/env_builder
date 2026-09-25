@@ -1,0 +1,19 @@
+{
+  "//": "構築先で実行する build の定義。run_build がこの定義に従ってリモートで実行し、ログを build_env/logs に回収する。",
+  "targets": [
+    {
+      "name": "libscl",
+      "//server": "build を実行するサーバ（inventory のキー）。libscl は dst の seigyo で build する。",
+      "server": "dst",
+      "workdir": "/home/seigyo/neo_app/src/libscl",
+      "//commands": "make。エラーに応じて OSS 導入やファイル配置を行う。",
+      "commands": [
+        "make"
+      ],
+      "//env": "VERSION_MNG は src と同じ値。これが無いと共通makeファイル(targets-lib.make)を解決できない。MODERN等の追加が必要ならエラーを見て足す。",
+      "env": {
+        "VERSION_MNG": "/opt/mel/modern/lib64/version_mng"
+      }
+    }
+  ]
+}

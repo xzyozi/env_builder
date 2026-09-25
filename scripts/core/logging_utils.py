@@ -31,7 +31,9 @@ def get_logger(name: str = "env_builder", logfile: Path | None = None) -> loggin
 
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%H:%M:%S")
 
-    ch = logging.StreamHandler(sys.stderr)
+    # stderr に出すと PowerShell 経由で NativeCommandError 扱いになり出力が
+    # 見えにくいため、stdout に出す。
+    ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO)
     ch.setFormatter(fmt)
     logger.addHandler(ch)
