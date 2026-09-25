@@ -32,6 +32,27 @@ def _load_targets() -> dict:
     return load_json(path)
 
 
+# コンパイル/リンクの失敗を示す痕跡。終了コードが 0 でも、これらが stderr に
+# あれば失敗とみなす（typechk.sh 経由でエラーが最上位に伝播しないため）。
+_BUILD_ERROR_MARKERS = (
+    "致命的エラー",
+    "fatal error",
+    "make: ***",
+    "make[1]: ***",
+    "make[2]: ***",
+    "] エラー ",
+    ": error:",
+    "] Error ",
+    "undefined reference",
+    "ld returned",
+)
+
+
+def _has_build_error(stderr: str) -> bool:
+    """stderr にコンパイル/リンク失敗の痕跡があるか判定する。"""
+    return any(marker in stderr for marker in _BUILD_ERROR_MARKERS)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default=None, help="build_targets の name。未指定なら先頭")
@@ -76,11 +97,16 @@ def main() -> int:
             (run_dir / f"step{i:02d}.stdout.log").write_text(res.stdout, encoding="utf-8")
             (run_dir / f"step{i:02d}.stderr.log").write_text(res.stderr, encoding="utf-8")
 
-            if res.ok:
+            # このビルドは typechk.sh 生成のサブシェル経由のため、コンパイルが
+            # 失敗しても最上位の終了コードが 0 になることがある。終了コードだけ
+            # でなく、stderr 中のエラー痕跡も見て成否を判定する。
+            failed = (not res.ok) or _has_build_error(res.stderr)
+            if not failed:
                 logger.info("    -> ok")
             else:
                 overall_ok = False
-                logger.error("    -> 失敗 exit=%d", res.exit_code)
+                logger.error("    -> 失敗 exit=%d（エラー痕跡検出=%s）",
+                             res.exit_code, _has_build_error(res.stderr))
                 # stderr の末尾を要約表示
                 tail = res.stderr.strip().splitlines()[-15:]
                 for line in tail:
