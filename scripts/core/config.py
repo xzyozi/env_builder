@@ -67,8 +67,6 @@ class ServerSpec:
     port: int = 22
     proxy_jump: Optional[str] = None
     auth: AuthSpec = field(default_factory=AuthSpec)
-    become_user: Optional[str] = None
-    become_method: str = "sudo"
 
     @classmethod
     def from_dict(cls, name: str, d: dict) -> "ServerSpec":
@@ -85,8 +83,6 @@ class ServerSpec:
             port=int(d.get("port", 22)),
             proxy_jump=d.get("proxy_jump"),
             auth=auth,
-            become_user=d.get("become_user"),
-            become_method=d.get("become_method", "sudo"),
         )
 
 

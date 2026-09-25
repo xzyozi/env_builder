@@ -104,24 +104,15 @@ class SSHSession:
         if self._bastion:
             self._bastion.close()
 
-    def _wrap_become(self, command: str) -> str:
-        """become_user が指定されていればユーザー切り替えでラップする。"""
-        spec = self.inventory.get(self.target)
-        if not spec.become_user:
-            return command
-        # コマンドをシングルクォートで安全に包む
-        escaped = command.replace("'", "'\\''")
-        if spec.become_method == "su":
-            return f"su - {spec.become_user} -c '{escaped}'"
-        # 既定は sudo
-        return f"sudo -iu {spec.become_user} bash -lc '{escaped}'"
-
     def run(self, command: str, timeout: int = 600) -> SSHResult:
-        """リモートで1コマンドを実行し結果を返す。"""
+        """リモートで1コマンドを実行し結果を返す。
+
+        権限昇格(sudo/su)は行わない方針。root 権限が必要な操作は、
+        inventory で root ユーザーとしてログインするサーバ定義を使う。
+        """
         if self._client is None:
             raise RuntimeError("セッションが未接続です。with 文で使ってください。")
-        full = self._wrap_become(command)
-        stdin, stdout, stderr = self._client.exec_command(full, timeout=timeout)
+        stdin, stdout, stderr = self._client.exec_command(command, timeout=timeout)
         out = stdout.read().decode("utf-8", errors="replace")
         err = stderr.read().decode("utf-8", errors="replace")
         code = stdout.channel.recv_exit_status()
