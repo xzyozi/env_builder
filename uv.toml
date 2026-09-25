@@ -1,0 +1,3 @@
+# 社内プロキシ等による TLS 傍受環境で、OS の証明書ストアを使う。
+# これが無いと pypi.org への接続で invalid peer certificate (UnknownIssuer) になる。
+native-tls = true
