@@ -22,6 +22,27 @@ except ImportError as e:  # pragma: no cover - 依存未導入時の明確なエ
 from .config import Inventory, ServerSpec
 
 
+# dst の seigyo はログインシェルで tset を実行するため、非対話SSHでは
+# stdout 末尾に "logout"、stderr に "tset: terminal attributes: ..." が
+# 必ず混じる。build の成否判定を誤らせるノイズなので除去する。
+# ここは「行そのものがノイズと一致する場合のみ」除去し、正規の出力は残す。
+_NOISE_STDOUT_PREFIXES = ("logout",)
+_NOISE_STDERR_SUBSTRINGS = ("tset: terminal attributes",)
+
+
+def _strip_shell_noise(text: str, patterns_prefix=(), patterns_substr=()) -> str:
+    """ログインシェル由来のノイズ行だけを取り除く。"""
+    kept = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if any(stripped == p or stripped.startswith(p) for p in patterns_prefix):
+            continue
+        if any(s in line for s in patterns_substr):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
 @dataclass
 class SSHResult:
     """コマンド実行結果。"""
@@ -132,6 +153,9 @@ class SSHSession:
         out = stdout.read().decode("utf-8", errors="replace")
         err = stderr.read().decode("utf-8", errors="replace")
         code = stdout.channel.recv_exit_status()
+        # ログインシェル由来のノイズ（logout / tset）を除去してから返す。
+        out = _strip_shell_noise(out, patterns_prefix=_NOISE_STDOUT_PREFIXES)
+        err = _strip_shell_noise(err, patterns_substr=_NOISE_STDERR_SUBSTRINGS)
         return SSHResult(exit_code=code, stdout=out, stderr=err)
 
     def get_file(self, remote_path: str, local_path: str) -> None:
