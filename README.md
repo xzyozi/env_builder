@@ -25,6 +25,10 @@
 
 ```
 env_builder/
+├── docs/                       # プロジェクト仕様・タスク資産（Second Brain OS 連携）
+│   ├── project.json               # プロジェクト固有設定（base_branch等）
+│   ├── tasks.md                   # タスク一覧・進行状況
+│   └── issues/                    # Issue 単位の詳細仕様
 ├── inventory/                  # 接続対象の定義（Ansible のインベントリ相当）
 │   ├── servers.sample.json     # 機密なしの接続テンプレート（追跡対象）
 │   └── servers.json            # 実体（.gitignoreで除外・機密を含む）
