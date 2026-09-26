@@ -7,5 +7,6 @@
   "constraints": {
     "external_modules_forbidden": false,
     "allowed_imports": []
-  }
+  },
+  "github_repo": "xzyozi/env_builder"
 }
