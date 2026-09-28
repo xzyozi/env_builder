@@ -28,7 +28,8 @@ def main() -> int:
     parser.add_argument("--save", action="store_true", help="出力を build_env/logs へ保存する")
     parser.add_argument("--timeout", type=int, default=120, help="コマンドのタイムアウト秒")
     parser.add_argument(
-        "command", nargs="+",
+        "command",
+        nargs="+",
         help="実行するコマンド（-- の後に記述）",
     )
     args = parser.parse_args()

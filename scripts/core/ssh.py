@@ -15,12 +15,9 @@ from typing import Optional
 try:
     import paramiko
 except ImportError as e:  # pragma: no cover - 依存未導入時の明確なエラー
-    raise ImportError(
-        "paramiko が必要です。`uv sync` もしくは `uv add paramiko` で導入してください。"
-    ) from e
+    raise ImportError("paramiko が必要です。`uv sync` もしくは `uv add paramiko` で導入してください。") from e
 
 from .config import Inventory, ServerSpec
-
 
 # dst の seigyo はログインシェルで tset を実行するため、非対話SSHでは
 # stdout 末尾に "logout"、stderr に "tset: terminal attributes: ..." が
@@ -62,9 +59,7 @@ class SSHResult:
         return self.exit_code == 0
 
 
-def _connect_one(
-    spec: ServerSpec, sock: Optional[object] = None
-) -> "paramiko.SSHClient":
+def _connect_one(spec: ServerSpec, sock: Optional[object] = None) -> "paramiko.SSHClient":
     """単一ホストへ接続した SSHClient を返す。sock は踏み台チャネル。"""
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -80,10 +75,7 @@ def _connect_one(
     if spec.auth.method == "password":
         pw = spec.auth.resolve_password()
         if not pw:
-            raise RuntimeError(
-                f"[{spec.name}] パスワード認証だが環境変数 "
-                f"{spec.auth.password_env} が未設定です。"
-            )
+            raise RuntimeError(f"[{spec.name}] パスワード認証だが環境変数 {spec.auth.password_env} が未設定です。")
         connect_kwargs["password"] = pw
         connect_kwargs["look_for_keys"] = False
         connect_kwargs["allow_agent"] = False

@@ -25,9 +25,7 @@ def _load_packages() -> dict:
     path = DESIRED_STATE_DIR / "packages.json"
     if not path.exists():
         sample = DESIRED_STATE_DIR / "packages.sample.json"
-        raise FileNotFoundError(
-            f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。"
-        )
+        raise FileNotFoundError(f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。")
     return load_json(path)
 
 

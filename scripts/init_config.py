@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from core.config import DESIRED_STATE_DIR, INVENTORY_DIR  # noqa: E402
+from core.config import INVENTORY_DIR  # noqa: E402
 
 # (sample パス, 生成先パス) の対応
 MAPPINGS = [
@@ -27,9 +27,7 @@ MAPPINGS = [
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--force", action="store_true", help="既存の実体ファイルを上書きする"
-    )
+    parser.add_argument("--force", action="store_true", help="既存の実体ファイルを上書きする")
     args = parser.parse_args()
 
     created = 0
