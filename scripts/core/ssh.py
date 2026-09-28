@@ -30,6 +30,12 @@ _NOISE_STDOUT_PREFIXES = ("logout",)
 _NOISE_STDERR_SUBSTRINGS = ("tset: terminal attributes",)
 
 
+# keepalive の送出間隔（秒）。OpenSSH の ServerAliveInterval に相当する。
+# 無通信が続く長時間処理（make 等）でも、この間隔でダミーパケットを送って
+# 接続を維持し、途中切断を防ぐ。踏み台を含む全 transport に設定する。
+_KEEPALIVE_INTERVAL_SEC = 30
+
+
 def _strip_shell_noise(text: str, patterns_prefix=(), patterns_substr=()) -> str:
     """ログインシェル由来のノイズ行だけを取り除く。"""
     kept = []
@@ -87,6 +93,13 @@ def _connect_one(
             connect_kwargs["key_filename"] = str(key_path)
 
     client.connect(**connect_kwargs)
+
+    # 接続維持のため keepalive を有効化する（OpenSSH の ServerAliveInterval 相当）。
+    # 踏み台・最終ホストとも同じ設定にし、無音の長時間処理での切断を防ぐ。
+    transport = client.get_transport()
+    if transport is not None:
+        transport.set_keepalive(_KEEPALIVE_INTERVAL_SEC)
+
     return client
 
 
