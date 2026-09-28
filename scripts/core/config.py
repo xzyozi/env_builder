@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-
 # リポジトリルート（scripts/core/config.py から2つ上）
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INVENTORY_DIR = REPO_ROOT / "inventory"
@@ -24,11 +23,7 @@ BUILD_ENV_DIR = REPO_ROOT / "build_env"
 def _strip_comments(obj):
     """JSON 内の "//" で始まるコメントキーを再帰的に除去する。"""
     if isinstance(obj, dict):
-        return {
-            k: _strip_comments(v)
-            for k, v in obj.items()
-            if not (isinstance(k, str) and k.startswith("//"))
-        }
+        return {k: _strip_comments(v) for k, v in obj.items() if not (isinstance(k, str) and k.startswith("//"))}
     if isinstance(obj, list):
         return [_strip_comments(v) for v in obj]
     return obj
@@ -102,10 +97,7 @@ class Inventory:
 
     def get(self, name: str) -> ServerSpec:
         if name not in self.servers:
-            raise KeyError(
-                f"サーバ '{name}' が inventory に定義されていません。"
-                f" 定義済み: {list(self.servers)}"
-            )
+            raise KeyError(f"サーバ '{name}' が inventory に定義されていません。 定義済み: {list(self.servers)}")
         return self.servers[name]
 
 
@@ -114,8 +106,7 @@ def load_inventory(path: Optional[Path] = None) -> Inventory:
     path = path or (INVENTORY_DIR / "servers.json")
     if not path.exists():
         raise FileNotFoundError(
-            f"{path} がありません。init_config スクリプトで "
-            "servers.sample.json から生成してください。"
+            f"{path} がありません。init_config スクリプトで servers.sample.json から生成してください。"
         )
     raw = load_json(path)
     servers = {name: ServerSpec.from_dict(name, spec) for name, spec in raw.items()}

@@ -33,8 +33,7 @@ CHECK_COMMANDS = {
 def _check_one(inv, logger, target: str) -> bool:
     spec = inv.get(target)
     via = f"（踏み台 {spec.proxy_jump} 経由）" if spec.proxy_jump else "（直接）"
-    logger.info("[%s] %s@%s:%s へ接続します%s",
-                target, spec.user, spec.host, spec.port, via)
+    logger.info("[%s] %s@%s:%s へ接続します%s", target, spec.user, spec.host, spec.port, via)
     try:
         with SSHSession(inv, target) as ssh:
             for label, cmd in CHECK_COMMANDS.items():
@@ -42,8 +41,7 @@ def _check_one(inv, logger, target: str) -> bool:
                 if res.ok:
                     logger.info("  %-9s = %s", label, res.stdout.strip())
                 else:
-                    logger.error("  %-9s 失敗 exit=%d %s",
-                                 label, res.exit_code, res.stderr.strip())
+                    logger.error("  %-9s 失敗 exit=%d %s", label, res.exit_code, res.stderr.strip())
                     return False
         logger.info("[%s] 疎通OK", target)
         return True
@@ -55,7 +53,8 @@ def _check_one(inv, logger, target: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--target", default=None,
+        "--target",
+        default=None,
         help="確認対象（inventory のキー）。未指定なら bastion 以外の全サーバ。",
     )
     args = parser.parse_args()

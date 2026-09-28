@@ -28,9 +28,7 @@ def _load_files() -> dict:
     path = DESIRED_STATE_DIR / "files.json"
     if not path.exists():
         sample = DESIRED_STATE_DIR / "files.sample.json"
-        raise FileNotFoundError(
-            f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。"
-        )
+        raise FileNotFoundError(f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。")
     return load_json(path)
 
 
@@ -70,7 +68,9 @@ def main() -> int:
     parser.add_argument("--src", default="src", help="取得元（inventory のキー）")
     parser.add_argument("--dst", default="dst", help="配置先（inventory のキー）")
     parser.add_argument(
-        "--upload-only", nargs=2, metavar=("LOCAL", "REMOTE"),
+        "--upload-only",
+        nargs=2,
+        metavar=("LOCAL", "REMOTE"),
         help="ローカルファイルを dst へ送るだけ（download をスキップ）",
     )
     args = parser.parse_args()

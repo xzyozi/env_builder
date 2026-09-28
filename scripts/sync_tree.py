@@ -38,7 +38,8 @@ def main() -> int:
     parser.add_argument("--dst", default="dst_root", help="配置先（inventory のキー）")
     parser.add_argument("--remote-src", required=True, help="src 上の取得対象ディレクトリ（絶対パス）")
     parser.add_argument(
-        "--remote-dst-parent", required=True,
+        "--remote-dst-parent",
+        required=True,
         help="dst 上の展開先の親ディレクトリ（ここに対象名で展開される）",
     )
     parser.add_argument("--timeout", type=int, default=600, help="各リモート操作のタイムアウト秒")

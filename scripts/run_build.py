@@ -97,8 +97,7 @@ def main() -> int:
     # 環境変数の export 前置き
     env_prefix = "".join(f"export {k}={v}; " for k, v in env.items())
 
-    logger.info("build 開始: target=%s server=%s workdir=%s",
-                target.get("name"), server, workdir)
+    logger.info("build 開始: target=%s server=%s workdir=%s", target.get("name"), server, workdir)
 
     overall_ok = True
     with SSHSession(inv, server) as ssh:
@@ -118,8 +117,7 @@ def main() -> int:
                 logger.info("    -> ok")
             else:
                 overall_ok = False
-                logger.error("    -> 失敗 exit=%d（エラー痕跡検出=%s）",
-                             res.exit_code, _has_build_error(res.stderr))
+                logger.error("    -> 失敗 exit=%d（エラー痕跡検出=%s）", res.exit_code, _has_build_error(res.stderr))
                 # stderr の末尾を要約表示
                 tail = res.stderr.strip().splitlines()[-15:]
                 for line in tail:
