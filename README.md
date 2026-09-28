@@ -39,7 +39,10 @@ env_builder/
 │   ├── apply_packages.py          # packages 定義に沿って導入（root前提）
 │   └── sync_files.py              # 設定ファイルの src→PC→dst 仲介
 ├── build_env/                  # 作業エリア（成果物・ログは .gitignore）
-├── pyproject.toml              # uv で管理（依存: paramiko）
+├── .github/                    # GitHub Actions（CI 等）
+│   └── workflows/
+│       └── ci.yml                 # PR で ruff / mypy / pytest を実行
+├── pyproject.toml              # uv で管理（依存: paramiko、dev: ruff/mypy/pytest）
 └── .gitignore
 ```
 
@@ -77,6 +80,40 @@ uv run python scripts/check_connectivity.py
 # 個別に確認する場合
 uv run python scripts/check_connectivity.py --target dst
 ```
+
+## 開発（Lint / 型チェック / テスト）
+
+lint・整形・型チェックの設定は `pyproject.toml` に定義している。開発ツールは
+`dev` extra（ruff / mypy / pytest）としてまとめており、次で導入する。
+
+```powershell
+# dev 依存を含めて同期
+uv sync --extra dev
+```
+
+ローカルでの実行方法（CI と同じチェック）:
+
+```powershell
+# Lint（pycodestyle / Pyflakes / import 整列）
+uv run ruff check .
+
+# 整形チェック（差分があれば失敗）。自動整形は uv run ruff format .
+uv run ruff format --check .
+
+# 型チェック
+uv run mypy .
+
+# テスト（tests/ 配下に test_*.py があれば）
+uv run pytest
+```
+
+### CI（GitHub Actions）
+
+`.github/workflows/ci.yml` が **main / develop 宛の Pull Request** で起動し、
+上記の ruff（lint / 整形チェック）・mypy・pytest を順に実行する。PR を作成すると
+自動でチェックが走り、いずれかが失敗すると PR 上でエラーになる。ローカルで
+`uv run ruff check .` と `uv run ruff format --check .` を通してから push すると、
+CI の失敗を事前に防げる。
 
 ## Git 方針
 
