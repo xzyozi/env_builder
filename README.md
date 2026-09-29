@@ -127,3 +127,86 @@ CI の失敗を事前に防げる。
 - 認証情報はコミットしない・コマンドラインに直書きしない。
 - `check_connectivity.py` / `probe_src.py` は読み取り専用コマンドのみ実行する。
 - パッケージ導入は uv の cooldown（グローバル `exclude-newer`）を前提とする。
+
+## scripts/core の使い方
+
+`scripts/core` は、上位スクリプト（`remote_exec.py` / `check_connectivity.py`
+など）が共通で使うライブラリ。責務は **設定読込・SSH実行・ログ出力** の3つに
+限定し、build ロジックや冪等判定は持たない。実行判断（どのコマンドをどの順で
+流すか、出力をどう解釈するか）は呼び出し側の責務。
+
+公開シンボル（`__init__.py` で re-export）:
+
+- 設定: `load_inventory`, `Inventory`, `ServerSpec`
+- SSH: `SSHSession`, `SSHResult`
+- ログ: `get_logger`, `new_run_dir`
+
+### 基本形
+
+上位スクリプトは `scripts/` を `sys.path` に足してから `core` を読む
+（既存スクリプトと同じ作法）。
+
+```python
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/ を通す
+from core.config import load_inventory
+from core.logging_utils import get_logger
+from core.ssh import SSHSession
+
+logger = get_logger()
+inv = load_inventory()                 # inventory/servers.json を読む
+
+with SSHSession(inv, "dst") as ssh:     # 踏み台があれば自動で多段接続
+    res = ssh.run("hostname; whoami", timeout=120)
+
+print(res.stdout)
+logger.info("exit=%d", res.exit_code)
+```
+
+### 1. config（設定読込）
+
+- `load_inventory()` … `inventory/servers.json` を読み `Inventory` を返す。
+  ファイルが無ければ「init_config で生成せよ」という明確なエラーを出す。
+- コメント付き JSON 対応 … キー名が `//` で始まる要素は再帰的に無視される
+  （設定ファイルの注記用）。
+- `Inventory.get(name)` … 対象サーバの `ServerSpec` を取得。未定義なら
+  定義済み一覧つきで `KeyError`。
+- 認証は環境変数経由 … `AuthSpec.resolve_password()` が `password_env` で
+  指定した環境変数から実値を取得する。パスワードは設定ファイルに書かない。
+  鍵認証は `resolve_key_path()`。
+- `proxy_jump` … 文字列（単一）でもリスト（多段）でも受け付け、内部でリスト化。
+  近い踏み台から順に並べる（例 `["gateway", "host"]`）。
+
+### 2. ssh（踏み台越し実行・ファイル転送）
+
+- `SSHSession(inventory, target)` を `with` で使う。`__enter__` で `proxy_jump`
+  を近い踏み台から順に張り、各段のチャネルを次段へ引き渡して多段接続する
+  （OpenSSH の ProxyJump 相当）。`__exit__` で接続と逆順にクローズ。
+- `ssh.run(command, timeout=600)` → `SSHResult(exit_code, stdout, stderr)`。
+  `res.ok` は `exit_code == 0` を表す。
+- 昇格しない … sudo/su は使わない。root が必要なら root ログインのサーバ定義
+  を使う。
+- ノイズ除去 … ログインシェル由来の `logout`（stdout）と
+  `tset: terminal attributes`（stderr）だけを行単位で除去し、正規の出力は残す。
+- keepalive … 全 transport に 30 秒間隔の keepalive を設定。無音が続く長時間
+  処理（`make` 等）でも切断を防ぐ。
+- ファイル転送 … `ssh.get_file(remote, local)`（download）/
+  `ssh.put_file(local, remote)`（upload）。内部で SFTP を開閉する。
+
+### 3. logging_utils（ログ）
+
+- `get_logger(name="env_builder", logfile=None)` … コンソール（stdout）へ
+  INFO 以上を出す。`logfile` を渡すと DEBUG 以上をファイルにも出す。同名ロガーは
+  使い回して二重登録を防ぐ。stderr でなく stdout に出すのは、PowerShell 経由で
+  stderr が `NativeCommandError` 扱いになり見えにくいのを避けるため。
+- `new_run_dir(label="run")` … 実行ごとのログ用ディレクトリを作って返す。
+
+### 注意点
+
+- `core` はライブラリであり単体では動かない。CLI として叩くのは
+  `remote_exec.py` などの上位スクリプト。
+- `core` を使う新スクリプトを追加する場合も、実行判断は呼び出し側が持つ。
+- パスは `config.py` の `REPO_ROOT`（`scripts/core/config.py` から2つ上）起点で
+  解決される。
