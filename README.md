@@ -156,9 +156,9 @@ from core.logging_utils import get_logger
 from core.ssh import SSHSession
 
 logger = get_logger()
-inv = load_inventory()                 # inventory/servers.json を読む
+inv = load_inventory()  # inventory/servers.json を読む
 
-with SSHSession(inv, "dst") as ssh:     # 踏み台があれば自動で多段接続
+with SSHSession(inv, "dst") as ssh:  # 踏み台があれば自動で多段接続
     res = ssh.run("hostname; whoami", timeout=120)
 
 print(res.stdout)
