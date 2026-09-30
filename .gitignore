@@ -235,8 +235,11 @@ inventory/*.local.json
 # desired_state 配下は内部情報（あるべき状態の実体）を含むため丸ごと除外する。
 desired_state/
 
-# sample ファイルもコミットしない（本来は build 用ディレクトリ側に作成する）。
+# sample ファイルは原則コミットしない（build 用ディレクトリ側の機密 sample を想定）。
 *.sample.json
+# ただし inventory の接続定義テンプレートは機密を含まないプレースホルダのため追跡する。
+# 新規参加者が init_config.py で servers.json を生成できるようにするため。
+!inventory/servers.sample.json
 
 # 秘密鍵・認証情報
 *.pem
