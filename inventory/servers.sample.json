@@ -1,0 +1,74 @@
+{
+  "//": "接続対象定義のテンプレート。init_config.py がこれを servers.json に複製する。複製後に実値（host/user 等）を記入し、パスワードは password_env の環境変数で渡す。実体 servers.json は .gitignore で除外される。",
+  "//policy": "sudo/su は使わない。root が要る操作は同一ホストの root 定義（*_root）を使う。ホスト・経路は同じで user と認証だけ替える（ユーザー替え接続）。詳細は .agent/references/connection.md。",
+
+  "gateway": {
+    "//": "src 用踏み台 1 段目。手元PC から直接接続。",
+    "host": "<GATEWAY_HOST>",
+    "port": 22,
+    "user": "<USER>",
+    "auth": {
+      "method": "password",
+      "password_env": "ENVB_GATEWAY_PASSWORD"
+    }
+  },
+
+  "anm_host": {
+    "//": "src 用踏み台 2 段目。gateway 経由で接続。",
+    "host": "<ANM_HOST>",
+    "port": 22,
+    "user": "<USER>",
+    "proxy_jump": ["gateway"],
+    "auth": {
+      "method": "password",
+      "password_env": "ENVB_ANMHOST_PASSWORD"
+    }
+  },
+
+  "src": {
+    "//": "参照元。gateway -> anm_host の 2 段経由。参照専用（通常ユーザー）。",
+    "host": "<SRC_HOST>",
+    "port": 22,
+    "user": "<USER>",
+    "proxy_jump": ["gateway", "anm_host"],
+    "auth": {
+      "method": "password",
+      "password_env": "ENVB_SRC_PASSWORD"
+    }
+  },
+
+  "//src_root": "参照元に root が必要なときの定義例。host/proxy_jump は src と同じで user と password_env だけ替える。不要ならこのブロックは削除してよい。",
+  "src_root": {
+    "//": "参照元と同一ホストに root で接続。root 権限が要る参照・確認用。",
+    "host": "<SRC_HOST>",
+    "port": 22,
+    "user": "root",
+    "proxy_jump": ["gateway", "anm_host"],
+    "auth": {
+      "method": "password",
+      "password_env": "ENVB_SRC_ROOT_PASSWORD"
+    }
+  },
+
+  "dst": {
+    "//": "構築先。踏み台なしで直結。build / 調査用（通常ユーザー）。",
+    "host": "<DST_HOST>",
+    "port": 22,
+    "user": "<USER>",
+    "auth": {
+      "method": "password",
+      "password_env": "ENVB_DST_PASSWORD"
+    }
+  },
+
+  "dst_root": {
+    "//": "構築先と同一ホストに root で接続。OSS 導入など root 権限が要る操作用（sudo は使わない）。",
+    "host": "<DST_HOST>",
+    "port": 22,
+    "user": "root",
+    "auth": {
+      "method": "password",
+      "password_env": "ENVB_DST_ROOT_PASSWORD"
+    }
+  }
+}

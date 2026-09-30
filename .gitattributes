@@ -1,0 +1,27 @@
+# 改行コードは LF に統一する（プロジェクト方針: UTF-8 BOM なし / LF）。
+# core.autocrlf の各自設定に依存せず、リポジトリ・作業ツリーとも LF を保証する。
+
+# 既定: テキストは自動判定しつつ、コミット時に LF へ正規化する。
+* text=auto eol=lf
+
+# 明示的にテキストとして LF 固定するもの。
+*.py    text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.cfg   text eol=lf
+*.txt   text eol=lf
+
+# Windows 用バッチは CRLF を維持する（実行環境がそれを期待するため）。
+*.bat   text eol=crlf
+
+# バイナリ（改行変換しない）。
+*.tar.gz binary
+*.gz     binary
+*.pem    binary
+*.key    binary
+*.ppk    binary
+*.ttl    binary
