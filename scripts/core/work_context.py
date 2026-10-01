@@ -135,8 +135,10 @@ class WorkContext:
                 "set -eu; "
                 f"test -d {quoted_path}; "
                 f"test ! -L {quoted_path}; "
+                f'test "$(stat -c %u {quoted_path})" = "$(id -u)"; '
                 f"test -f {quoted_marker}; "
                 f"test ! -L {quoted_marker}; "
+                f'test "$(stat -c %u {quoted_marker})" = "$(id -u)"; '
                 f'test "$(cat {quoted_marker})" = {quoted_work_id}; '
                 f"rm -rf -- {quoted_path}"
             )
