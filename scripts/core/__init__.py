@@ -7,6 +7,7 @@
 from .config import Inventory, ServerSpec, load_inventory
 from .logging_utils import get_logger, new_run_dir
 from .ssh import SSHResult, SSHSession
+from .work_context import WorkContext
 
 __all__ = [
     "Inventory",
@@ -16,4 +17,5 @@ __all__ = [
     "new_run_dir",
     "SSHResult",
     "SSHSession",
+    "WorkContext",
 ]
