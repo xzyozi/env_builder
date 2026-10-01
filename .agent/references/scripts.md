@@ -10,11 +10,26 @@
 ## スクリプト vs エージェントの境界
 
 - **スクリプトに置く**（機械的処理・再現性）: SSH 多段接続、tar 中継転送、rpm 冪等判定、
-  ログ保存、出力の定型パターン検出。引数を変えれば別状況でも使い回せるもの。
+  ログ保存、出力の定型パターン検出、専用一時領域の作成とcleanup。引数を変えれば別状況でも
+  使い回せるもの。
 - **エージェントが判断する**（解釈・順序・意思決定）: どのターゲットを先に処理するか、
   失敗ログのどのマーカーで何を疑うか、次にどのスクリプトをどの引数で叩くか、収集結果を
   どう次の一手に反映するか。
 - 迷ったら: 「引数を変えれば使い回せる」ならスクリプト、「状況を読んで決める」ならエージェント。
+
+## 作業コンテキスト（WorkContext）
+
+`scripts/core/work_context.py` が1回の転送作業に作業IDと一時領域を割り当てる。
+
+- ローカル中継: `build_env/work/<work-id>/stage/`
+- リモート中継: `/tmp/env_builder-<work-id>-XXXXXX/`（各接続先で生成）
+- 作業記録: `build_env/logs/work_<work-id>/manifest.json`
+- cleanup: 作業成功・失敗・例外にかかわらず、専用作業領域だけを削除する。
+- `keep_workdir=True` は失敗調査など、明示的に保持するときだけ利用する。
+- `/home/<user>` 直下、`/tmp` 直下の固定名、`desired_state` の永続配置は作業領域にしない。
+
+manifestには作業ID、対象、状態、cleanup結果を記録する。認証情報や実行コマンド全文は記録しない。
+OSによる `/tmp` の定期削除は、強制終了時に残った領域へのfallbackであり、通常のcleanupの代替ではない。
 
 ---
 
@@ -71,6 +86,9 @@
   - src に対して使うときは**読み取り専用に限定**する（operation-safety 準拠）。
   - 状態を変える操作（インストール・削除・展開）は、専用スクリプト（apply_packages /
     sync_tree 等）があるならそちらを優先する。remote_exec での状態変更は影響を確認してから。
+  - `remote_exec.py` は任意コマンドを実行するため、任意コマンドが作ったファイルを推測して
+    自動削除しない。作業ファイルを作る調査では、コマンド側で `/tmp/env_builder-<work-id>/`
+    などの専用領域を使い、処理後にその領域を明示的に削除する。
   - 終了コードだけでなく stdout/stderr の中身を読んで解釈する。`--save` した出力は後の
     調査・比較に使える。
 
@@ -82,8 +100,10 @@
 - **主な引数**:
   - 既定: `files.json` に従い `--src src --dst dst`。
   - `--upload-only <LOCAL> <REMOTE>`（download をスキップし、手元のファイルを dst へ送るだけ）。
-- **メモ**: `files.json` に `mode` があれば `chmod` する。root 配置先へは `--dst` に root
-  定義を指定する。
+- **中継物**: `build_env/work/<work-id>/stage/file_NNN` に作成し、作業終了時に作業ディレクトリごと削除。
+  失敗時もcleanupする。`--upload-only` の入力ファイルと `dst_path` の永続配置先は削除しない。
+- **メモ**: `files.json` に `mode` があれば `chmod` し、失敗時は転送全体を失敗扱いにする。root
+  配置先へは `--dst` に root 定義を指定する。
 
 ## sync_tree.py — ディレクトリ丸ごとの中継転送
 
@@ -103,8 +123,11 @@
     --remote-dst-parent /opt/mel/modern/lib64
   ```
 
-- **メモ**: 中継の tar は `build_env/artifacts/trees/` に一時保管される（Git 管理外）。
-  リモート `/tmp` の tar は処理後に削除される。
+- **中継物**: src/dstの一時tarは各接続先の `/tmp/env_builder-<work-id>-XXXXXX/`、
+  ローカルtarは `build_env/work/<work-id>/stage/tree.tar.gz` に置く。成功・失敗・例外時に
+  専用作業ディレクトリをcleanupし、固定名の `/tmp` ファイルやHOME直下を使わない。
+- **永続配置**: `--remote-dst-parent` 以下への展開物はcleanupしない。
+- **安全性**: リモートパスをshellへ渡す際はquoteし、作業領域はmarker・パス形式を検証して削除する。
 
 ## apply_packages.py — パッケージの冪等適用
 
@@ -140,3 +163,5 @@
 3. `run_build.py`（または対象作業）を実行し、失敗ログを読む。
 4. 不足を判断し、`sync_tree.py` / `sync_files.py` / `apply_packages.py` で環境を整える。
 5. 再実行して通るまで 3〜4 を繰り返す。
+
+</content>
