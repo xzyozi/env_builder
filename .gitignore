@@ -226,6 +226,9 @@ __marimo__/
 !.kiro/steering/
 .kiro/steering/*
 !.kiro/steering/agent-bridge.md
+# 共有するKiroカスタムAgent定義は追跡対象にする。
+!.kiro/agents/
+!.kiro/agents/project-initializer.md
 
 # 機密情報を含む設定の実体ファイルは除外する。
 # ホスト名・ユーザー名・パスワード・鍵などは実体ファイルに閉じ込める。

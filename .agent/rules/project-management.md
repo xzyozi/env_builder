@@ -6,6 +6,13 @@
 あるべき状態、実行ログを分離して扱う。プロジェクトの選択は暗黙に推測せず、
 CLIの `--project <id>` または依頼文で明示する。
 
+## 初期設定の入口
+
+- Kiroでは `.kiro/agents/project-initializer.md` を選択し、`.agent/skills/project-initialization/SKILL.md` の手順で壁打ちを行う。
+- 初期設定Agentはprojectの選択、要件確認、計画提示、明示承認後の `init_config.py` 呼び出しだけを担当する。
+- 初期化後の疎通確認、src調査、build、パッケージ導入、ファイル転送、リモート変更は、別承認後に対応する。
+- `init_config.py` は既存ファイルを既定で保持する。`--force` の使用には対象と影響を説明した別承認が必要である。
+
 ## プロジェクトプロファイル
 
 - `ProjectRegistry.resolve(project_id)` がプロジェクトの設定ルートを解決する。

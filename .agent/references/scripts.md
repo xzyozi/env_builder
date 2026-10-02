@@ -25,6 +25,20 @@ uv run python scripts/run_build.py --project project-a --target main
 `AGENTS.md`／`.agent/`を明示的に読み込む。適用範囲と安全規則は
 `.agent/rules/project-management.md`を参照する。
 
+## 初期設定Agent
+
+Kiroでは `.kiro/agents/project-initializer.md` を選択し、初期設定の壁打ちを開始する。
+ツール非依存の手順は `.agent/skills/project-initialization/SKILL.md` にある。
+
+初期設定Agentの責務は、legacy/projectの選択、project ID・設定ルート・接続対象の確認、
+生成計画の提示、明示承認後の `init_config.py` 呼び出し、初期化後の引き渡しである。
+`init_config.py` はサンプルから実体をコピーする機械的処理、`ProjectRegistry` はID検証と
+profile解決を担当する。Agentはこれらの処理を再実装しない。
+
+初期設定Agentは、既存ファイルを既定で上書きせず、`--force` を自動選択しない。また、
+初期化後のSSH疎通、src調査、build、パッケージ導入、ファイル転送、リモート変更は
+自動開始せず、別承認後に対応する。
+
 ## スクリプト vs エージェントの境界
 
 - **スクリプトに置く**（機械的処理・再現性）: SSH 多段接続、tar 中継転送、rpm 冪等判定、
