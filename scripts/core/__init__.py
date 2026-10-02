@@ -6,6 +6,7 @@
 
 from .config import Inventory, ServerSpec, load_inventory
 from .logging_utils import get_logger, new_run_dir
+from .project import ProjectProfile, ProjectRegistry, validate_project_id
 from .ssh import SSHResult, SSHSession
 from .work_context import WorkContext
 
@@ -13,6 +14,9 @@ __all__ = [
     "Inventory",
     "ServerSpec",
     "load_inventory",
+    "ProjectProfile",
+    "ProjectRegistry",
+    "validate_project_id",
     "get_logger",
     "new_run_dir",
     "SSHResult",
