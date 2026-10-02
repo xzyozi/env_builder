@@ -27,9 +27,11 @@ allowed-tools: [Bash, Read, Grep, Glob]
 
 作業対象は案件ごとに異なる。まず Git 管理外のメタデータを読み、今回の対象を把握する。
 
-- 接続対象: `inventory/servers.json`（キー名 src / dst / dst_root / bastion 等）
-- あるべき状態: `desired_state/`（build なら `build_targets.local.json`、パッケージなら
+- プロジェクト: `--project <id>` を指定し、選択したProjectProfileを確認する。未指定時はlegacy経路。
+- 接続対象: 選択したprofileの `inventory/servers.json`（キー名 src / dst / dst_root / bastion 等）
+- あるべき状態: 選択したprofileの `desired_state/`（build なら `build_targets.local.json`、パッケージなら
   `packages.json`、ファイル対応なら `files.json`）
+- 作業成果物・ログ: 選択したprofileの `build_env/`
 
 手順そのものはこのスキルにあり、**何を作るか**はメタデータ側にある。ビルドでもコンテナ
 構築でも、この分離で同じループを使い回す。
