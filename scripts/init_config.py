@@ -18,26 +18,32 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import INVENTORY_DIR  # noqa: E402
+from core.project import ProjectRegistry  # noqa: E402
 
-# (sample パス, 生成先パス) の対応
-MAPPINGS = [
-    (INVENTORY_DIR / "servers.sample.json", INVENTORY_DIR / "servers.json"),
-]
+
+def _mappings(profile):
+    return [(INVENTORY_DIR / "servers.sample.json", profile.inventory_path)]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     parser.add_argument("--force", action="store_true", help="既存の実体ファイルを上書きする")
     args = parser.parse_args()
 
+    profile = ProjectRegistry().resolve(args.project, allow_missing=args.project is not None)
+    if args.project is not None:
+        profile.root_dir.mkdir(parents=True, exist_ok=True)
+
     created = 0
-    for sample, target in MAPPINGS:
+    for sample, target in _mappings(profile):
         if not sample.exists():
             print(f"[skip] テンプレートが見つかりません: {sample.name}")
             continue
         if target.exists() and not args.force:
             print(f"[keep] 既存のため維持: {target.name}（上書きは --force）")
             continue
+        target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(sample, target)
         print(f"[ok]   生成: {target.name}")
         created += 1

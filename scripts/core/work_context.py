@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from .config import BUILD_ENV_DIR
+from .project import validate_project_id
 
 if TYPE_CHECKING:
     from .ssh import SSHSession
@@ -54,6 +55,8 @@ class WorkContext:
 
     label: str
     keep_workdir: bool = False
+    build_env_dir: Path = BUILD_ENV_DIR
+    project_id: Optional[str] = None
     work_id: str = field(init=False)
     work_dir: Path = field(init=False)
     stage_dir: Path = field(init=False)
@@ -62,10 +65,12 @@ class WorkContext:
     _remote_workspaces: list[dict[str, Any]] = field(default_factory=list, init=False)
 
     def __post_init__(self) -> None:
+        if self.project_id is not None:
+            validate_project_id(self.project_id)
         self.work_id = _new_work_id(self.label)
 
     def __enter__(self) -> "WorkContext":
-        local_root = BUILD_ENV_DIR / "work"
+        local_root = self.build_env_dir / "work"
         local_root.mkdir(parents=True, exist_ok=True)
 
         self.work_dir = local_root / self.work_id
@@ -73,7 +78,7 @@ class WorkContext:
         self.stage_dir = self.work_dir / "stage"
         self.stage_dir.mkdir(mode=0o700)
 
-        manifest_dir = BUILD_ENV_DIR / "logs" / f"work_{self.work_id}"
+        manifest_dir = self.build_env_dir / "logs" / f"work_{self.work_id}"
         manifest_dir.mkdir(parents=True, exist_ok=True)
         self.manifest_path = manifest_dir / "manifest.json"
         self._write_manifest(status="running", local_cleanup="pending")
@@ -166,13 +171,15 @@ class WorkContext:
         raise ValueError(f"登録されていないリモート作業領域です: target={target}, path={path}")
 
     def _write_manifest(self, status: str, local_cleanup: str, error_type: Optional[str] = None) -> None:
+        local_workspace = f"build_env/work/{self.work_id}" if self.project_id is None else str(self.work_dir)
         payload = {
             "schema_version": 1,
             "work_id": self.work_id,
             "label": self.label,
             "status": status,
             "local_cleanup": local_cleanup,
-            "local_workspace": f"build_env/work/{self.work_id}",
+            "local_workspace": local_workspace,
+            "project_id": self.project_id,
             "remote_workspaces": self._remote_workspaces,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }

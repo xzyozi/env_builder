@@ -21,6 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import load_inventory  # noqa: E402
 from core.logging_utils import get_logger  # noqa: E402
+from core.project import ProjectRegistry  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 
 # 疎通確認に使う読み取り専用コマンド
@@ -57,10 +58,12 @@ def main() -> int:
         default=None,
         help="確認対象（inventory のキー）。未指定なら bastion 以外の全サーバ。",
     )
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     args = parser.parse_args()
 
-    logger = get_logger()
-    inv = load_inventory()
+    profile = ProjectRegistry().resolve(args.project)
+    logger = get_logger(project_id=profile.project_id)
+    inv = load_inventory(profile.inventory_path)
 
     if args.target:
         targets = [args.target]

@@ -20,10 +20,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import DESIRED_STATE_DIR, load_inventory, load_json  # noqa: E402
 from core.logging_utils import get_logger, new_run_dir  # noqa: E402
+from core.project import ProjectRegistry  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 
 
-def _load_targets() -> dict:
+def _load_targets(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
     """build ターゲット定義を読み込む。
 
     環境固有値（サーバ名・作業ディレクトリ・VERSION_MNG 等）はリポジトリに
@@ -33,8 +34,8 @@ def _load_targets() -> dict:
       2. 後方互換として build_targets.json があれば読む
     どちらも無ければ、local ファイルの作成を促すエラーにする。
     """
-    local_path = DESIRED_STATE_DIR / "build_targets.local.json"
-    legacy_path = DESIRED_STATE_DIR / "build_targets.json"
+    local_path = desired_state_dir / "build_targets.local.json"
+    legacy_path = desired_state_dir / "build_targets.json"
     if local_path.exists():
         return load_json(local_path)
     if legacy_path.exists():
@@ -69,9 +70,11 @@ def _has_build_error(stderr: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default=None, help="build_targets の name。未指定なら先頭")
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     args = parser.parse_args()
 
-    cfg = _load_targets()
+    profile = ProjectRegistry().resolve(args.project)
+    cfg = _load_targets(profile.desired_state_dir)
     targets = cfg.get("targets", [])
     if not targets:
         print("build_targets.json に targets がありません。")
@@ -85,9 +88,13 @@ def main() -> int:
             return 1
         target = matched[0]
 
-    run_dir = new_run_dir(label=f"build_{target.get('name', 'main')}")
-    logger = get_logger(logfile=run_dir / "run.log")
-    inv = load_inventory()
+    run_dir = new_run_dir(
+        label=f"build_{target.get('name', 'main')}",
+        build_env_dir=profile.build_env_dir,
+        project_id=profile.project_id,
+    )
+    logger = get_logger(logfile=run_dir / "run.log", project_id=profile.project_id)
+    inv = load_inventory(profile.inventory_path)
 
     server = target.get("server", "dst")
     workdir = target["workdir"]
