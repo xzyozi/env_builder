@@ -109,6 +109,24 @@ uv run python scripts/run_build.py --project project-a --target main
 プロジェクトを指定しない既存コマンドは、従来どおりリポジトリ直下の設定を使います。
 プロファイルの選択・agent規約の適用順序・安全境界は `.agent/rules/project-management.md` を参照してください。
 
+## 初期設定Agentで始める
+
+Kiroでは、Agent一覧から `project-initializer` を選択するか、依頼時に
+`# project-initializer` を指定して初期設定の壁打ちを開始します。初期設定の手順本体は
+`.agent/skills/project-initialization/SKILL.md` にあり、Kiro以外のツールからも参照できます。
+
+Agentは次の順で進めます。
+
+1. legacy経路か明示projectか、project ID、設定ルート、接続対象、認証方式、次工程を確認する。
+2. 変更を行わず、生成先・既存ファイルの扱い・実行予定コマンド・未確定事項を計画として示す。
+3. ユーザーの明示承認後に、既存ファイルを保持する設定で `scripts/init_config.py` を実行する。
+4. ユーザーが `inventory/servers.json` と環境変数、必要な `desired_state` を設定する。
+5. 別の承認後に対象を限定した疎通確認を行い、必要なら `env-provisioning` へ引き渡す。
+
+初期設定Agentは、パスワードや秘密鍵の実値を扱いません。また、初期化後に疎通確認、
+build、パッケージ導入、ファイル転送、リモート変更を自動開始しません。既存ファイルを
+上書きする `--force` は、影響と復元方法を確認した別承認がある場合だけ使用します。
+
 ## まず疎通確認
 
 ```powershell

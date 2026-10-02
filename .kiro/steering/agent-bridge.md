@@ -22,6 +22,12 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
 - 各種ワークフロー: `.agent/skills/` 配下の各 `SKILL.md`
   （context / connectivity-check / probe-src / remote-investigation /
   sync-artifacts / env-provisioning）
+- 初期設定Agent: `.kiro/agents/project-initializer.md`
+- 初期設定手順: `.agent/skills/project-initialization/SKILL.md`
+
+初期設定を始めるときは、KiroのAgent一覧から `project-initializer` を選択する。
+このAgentは壁打ち・計画・明示承認・既存CLIへの委譲だけを行い、疎通確認や環境変更は
+ユーザーの別承認後に対応する。
 
 #[[file:.agent/rules/project-management.md]]
 
