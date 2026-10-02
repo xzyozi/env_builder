@@ -16,10 +16,13 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
   - src には root で入らない。src は読み取り専用。
   - OSS・認証情報・作業成果物はコミットしない。
 - Git 運用: `.agent/rules/git-workflow.md`
+- 配下プロジェクト管理: `.agent/rules/project-management.md`
 - コーディング規約: `.agent/rules/coding-style.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 各種ワークフロー: `.agent/skills/` 配下の各 `SKILL.md`
   （context / connectivity-check / probe-src / remote-investigation /
   sync-artifacts / env-provisioning）
+
+#[[file:.agent/rules/project-management.md]]
 
 ルートの `AGENTS.md` も同じ `.agent/` を指すエントリポイントである。

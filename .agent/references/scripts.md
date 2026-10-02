@@ -7,6 +7,24 @@
 すべて `uv run python scripts/<name>.py ...` で実行する。接続対象は `inventory/servers.json`
 の**キー名**（`src` / `dst` / `dst_root` / `bastion` など）で指定する。
 
+## ProjectProfile / --project
+
+複数の配下プロジェクトを扱う場合は、各CLIに `--project <id>` を指定する。`ProjectRegistry` が
+project IDを検証し、選択したprofileの `inventory/servers.json`、`desired_state/`、`build_env/` を
+解決する。プロジェクト設定ルートは `ENVB_PROJECT_ROOT` で指定し、未指定時はリポジトリ直下の
+`projects/` を使う。`--project` を省略した場合は従来のリポジトリ直下設定を使う。
+
+```powershell
+$env:ENVB_PROJECT_ROOT = "C:\env_builder-projects"
+uv run python scripts/init_config.py --project project-a
+uv run python scripts/check_connectivity.py --project project-a
+uv run python scripts/run_build.py --project project-a --target main
+```
+
+プロジェクト固有のagent規約はPythonスクリプトが自動解釈せず、agentがproject選択後に
+`AGENTS.md`／`.agent/`を明示的に読み込む。適用範囲と安全規則は
+`.agent/rules/project-management.md`を参照する。
+
 ## スクリプト vs エージェントの境界
 
 - **スクリプトに置く**（機械的処理・再現性）: SSH 多段接続、tar 中継転送、rpm 冪等判定、

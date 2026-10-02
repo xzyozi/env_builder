@@ -18,13 +18,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import DESIRED_STATE_DIR, load_inventory, load_json  # noqa: E402
 from core.logging_utils import get_logger  # noqa: E402
+from core.project import ProjectRegistry  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 
 
-def _load_packages() -> dict:
-    path = DESIRED_STATE_DIR / "packages.json"
+def _load_packages(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
+    path = desired_state_dir / "packages.json"
     if not path.exists():
-        sample = DESIRED_STATE_DIR / "packages.sample.json"
+        sample = desired_state_dir / "packages.sample.json"
         raise FileNotFoundError(f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。")
     return load_json(path)
 
@@ -37,14 +38,16 @@ def _is_installed(ssh: SSHSession, pkg: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default="dst", help="適用対象（inventory のキー）")
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     parser.add_argument("--check", action="store_true", help="dry-run（差分のみ表示）")
     args = parser.parse_args()
 
-    logger = get_logger()
-    cfg = _load_packages()
+    profile = ProjectRegistry().resolve(args.project)
+    logger = get_logger(project_id=profile.project_id)
+    cfg = _load_packages(profile.desired_state_dir)
     pm = cfg.get("package_manager", "dnf")
     packages = [p["name"] for p in cfg.get("packages", []) if p.get("state", "present") == "present"]
-    inv = load_inventory()
+    inv = load_inventory(profile.inventory_path)
 
     logger.info("%s の状態を確認します（package_manager=%s）", args.target, pm)
     with SSHSession(inv, args.target) as ssh:

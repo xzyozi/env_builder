@@ -258,5 +258,13 @@ build_env/logs/*
 build_env/src_snapshot/*
 build_env/artifacts/*
 !build_env/**/.gitkeep
+# プロジェクト固有の設定実体・成果物（repo内fallbackを使う場合も機密を追跡しない）
+projects/*/inventory/servers.json
+projects/*/inventory/*.local.json
+projects/*/desired_state/
+projects/*/build_env/
+projects/*/secrets/
+projects/*/.env*
+
 # tmp
 tmp/*

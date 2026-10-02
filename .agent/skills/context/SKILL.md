@@ -15,9 +15,10 @@ allowed-tools: [Read, Grep, Glob]
 
 1. `.agent/instructions.md` — エージェントの役割・基本姿勢・案件メタデータの置き場所
 2. `.agent/rules/operation-safety.md` — 運用の鉄則（sudo/su 禁止、src に root 禁止、OSS 非保存）
-3. `.agent/rules/git-workflow.md` — ブランチ・コミット規約・機密の非コミット
+3. `.agent/rules/git-workflow.md` — ブランチ、コミット、機密・成果物の扱い
 4. `.agent/rules/coding-style.md` — Python / uv / ruff・mypy・pytest / core の責務
-5. `.agent/references/scripts.md` — 各スクリプトの用途・引数・スクリプトとエージェントの境界
+5. `.agent/rules/project-management.md` — project profile、`--project`、agent規約の適用範囲
+6. `.agent/references/scripts.md` — 各スクリプトの用途・引数・スクリプトとエージェントの境界
 
 ## 読み込んだ後
 

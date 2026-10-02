@@ -16,8 +16,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from core.config import BUILD_ENV_DIR, load_inventory  # noqa: E402
+from core.config import load_inventory  # noqa: E402
 from core.logging_utils import get_logger  # noqa: E402
+from core.project import ProjectRegistry  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 
 # 収集コマンド（名前 -> リモートコマンド）。読み取り専用のみ。
@@ -32,12 +33,17 @@ PROBES = {
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default="src", help="収集対象（inventory のキー）")
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     args = parser.parse_args()
 
-    logger = get_logger()
-    inv = load_inventory()
+    profile = ProjectRegistry().resolve(args.project)
+    logger = get_logger(project_id=profile.project_id)
+    inv = load_inventory(profile.inventory_path)
 
-    out_dir = BUILD_ENV_DIR / "src_snapshot" / args.target
+    out_dir = profile.build_env_dir / "src_snapshot"
+    if profile.project_id is not None:
+        out_dir = out_dir / profile.project_id
+    out_dir = out_dir / args.target
     out_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("%s へ接続して現状を収集します", args.target)

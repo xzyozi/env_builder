@@ -81,6 +81,34 @@ $env:ENVB_SRC_PASSWORD     = "..."
 $env:ENVB_DST_PASSWORD     = "..."
 ```
 
+## 複数プロジェクトの管理
+
+複数の配下プロジェクトを扱う場合は、プロジェクトごとにinventory、desired state、ログを分離し、
+すべてのCLIへ `--project <id>` を指定します。プロジェクト設定ルートは環境変数で指定できます。
+
+```powershell
+$env:ENVB_PROJECT_ROOT = "C:\env_builder-projects"
+uv run python scripts/init_config.py --project project-a
+uv run python scripts/check_connectivity.py --project project-a
+uv run python scripts/probe_src.py --project project-a --target src
+uv run python scripts/run_build.py --project project-a --target main
+```
+
+各プロジェクトは次の構成を基本とします。`inventory/servers.json`、`desired_state/`、
+`build_env/`は機密・環境固有値・作業成果物を含むためGit管理外に置きます。
+
+```text
+<ENVB_PROJECT_ROOT>/project-a/
+├── inventory/servers.json
+├── desired_state/
+├── build_env/
+├── AGENTS.md       # 任意のプロジェクト固有agent入口
+└── .agent/         # 任意のプロジェクト固有規約
+```
+
+プロジェクトを指定しない既存コマンドは、従来どおりリポジトリ直下の設定を使います。
+プロファイルの選択・agent規約の適用順序・安全境界は `.agent/rules/project-management.md` を参照してください。
+
 ## まず疎通確認
 
 ```powershell

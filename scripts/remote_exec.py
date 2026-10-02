@@ -19,12 +19,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import load_inventory  # noqa: E402
 from core.logging_utils import get_logger, new_run_dir  # noqa: E402
+from core.project import ProjectRegistry  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default="dst", help="対象（inventory のキー）")
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     parser.add_argument("--save", action="store_true", help="出力を build_env/logs へ保存する")
     parser.add_argument("--timeout", type=int, default=120, help="コマンドのタイムアウト秒")
     parser.add_argument(
@@ -35,8 +37,9 @@ def main() -> int:
     args = parser.parse_args()
 
     command = " ".join(args.command)
-    logger = get_logger()
-    inv = load_inventory()
+    profile = ProjectRegistry().resolve(args.project)
+    logger = get_logger(project_id=profile.project_id)
+    inv = load_inventory(profile.inventory_path)
 
     logger.info("[%s] 実行: %s", args.target, command)
     with SSHSession(inv, args.target) as ssh:
@@ -52,7 +55,11 @@ def main() -> int:
     logger.info("exit=%d", res.exit_code)
 
     if args.save:
-        run_dir = new_run_dir(label=f"exec_{args.target}")
+        run_dir = new_run_dir(
+            label=f"exec_{args.target}",
+            build_env_dir=profile.build_env_dir,
+            project_id=profile.project_id,
+        )
         (run_dir / "stdout.log").write_text(res.stdout, encoding="utf-8")
         (run_dir / "stderr.log").write_text(res.stderr, encoding="utf-8")
         logger.info("保存先: %s", run_dir)

@@ -23,27 +23,32 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import DESIRED_STATE_DIR, load_inventory, load_json  # noqa: E402
 from core.logging_utils import get_logger  # noqa: E402
+from core.project import ProjectProfile, ProjectRegistry  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 from core.work_context import WorkContext  # noqa: E402
 
 
-def _load_files() -> dict:
-    path = DESIRED_STATE_DIR / "files.json"
+def _load_files(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
+    path = desired_state_dir / "files.json"
     if not path.exists():
-        sample = DESIRED_STATE_DIR / "files.sample.json"
+        sample = desired_state_dir / "files.sample.json"
         raise FileNotFoundError(f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。")
     return load_json(path)
 
 
-def _sync_via_local(inv, logger, src_key: str, dst_key: str) -> int:
+def _sync_via_local(inv, logger, src_key: str, dst_key: str, profile: ProjectProfile) -> int:
     """files.json に従い src からダウンロードして dst へアップロードする。"""
-    cfg = _load_files()
+    cfg = _load_files(profile.desired_state_dir)
     entries = cfg.get("files", [])
     if not entries:
         logger.info("files.json に対象がありません。")
         return 0
 
-    with WorkContext("sync-files") as work:
+    with WorkContext(
+        "sync-files",
+        build_env_dir=profile.build_env_dir,
+        project_id=profile.project_id,
+    ) as work:
         logger.info("src(%s) からダウンロードします", src_key)
         with SSHSession(inv, src_key) as src_ssh:
             for i, entry in enumerate(entries):
@@ -84,6 +89,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--src", default="src", help="取得元（inventory のキー）")
     parser.add_argument("--dst", default="dst", help="配置先（inventory のキー）")
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     parser.add_argument(
         "--upload-only",
         nargs=2,
@@ -92,8 +98,9 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    logger = get_logger()
-    inv = load_inventory()
+    profile = ProjectRegistry().resolve(args.project)
+    logger = get_logger(project_id=profile.project_id)
+    inv = load_inventory(profile.inventory_path)
 
     if args.upload_only:
         local, remote = args.upload_only
@@ -103,7 +110,7 @@ def main() -> int:
         logger.info("完了")
         return 0
 
-    return _sync_via_local(inv, logger, args.src, args.dst)
+    return _sync_via_local(inv, logger, args.src, args.dst, profile)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import load_inventory  # noqa: E402
 from core.logging_utils import get_logger  # noqa: E402
+from core.project import ProjectRegistry  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 from core.work_context import WorkContext  # noqa: E402
 
@@ -38,6 +39,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--src", default="src", help="取得元（inventory のキー）")
     parser.add_argument("--dst", default="dst_root", help="配置先（inventory のキー）")
+    parser.add_argument("--project", default=None, help="プロジェクトID。未指定ならlegacy設定を使う")
     parser.add_argument("--remote-src", required=True, help="src 上の取得対象ディレクトリ（絶対パス）")
     parser.add_argument(
         "--remote-dst-parent",
@@ -47,8 +49,9 @@ def main() -> int:
     parser.add_argument("--timeout", type=int, default=600, help="各リモート操作のタイムアウト秒")
     args = parser.parse_args()
 
-    logger = get_logger()
-    inv = load_inventory()
+    profile = ProjectRegistry().resolve(args.project)
+    logger = get_logger(project_id=profile.project_id)
+    inv = load_inventory(profile.inventory_path)
 
     remote_src = args.remote_src.rstrip("/")
     parent = posixpath.dirname(remote_src)
@@ -56,7 +59,11 @@ def main() -> int:
     destination = posixpath.join(args.remote_dst_parent, base)
     overall_ok = True
 
-    with WorkContext("sync-tree") as work:
+    with WorkContext(
+        "sync-tree",
+        build_env_dir=profile.build_env_dir,
+        project_id=profile.project_id,
+    ) as work:
         local_tar = work.stage_dir / "tree.tar.gz"
 
         # 1. src の専用 /tmp 作業領域で tar.gz を作成して download

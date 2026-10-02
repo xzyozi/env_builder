@@ -17,6 +17,7 @@
 - Git 運用: `.agent/rules/git-workflow.md`
 - コーディング規約: `.agent/rules/coding-style.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
+- 配下プロジェクト管理: `.agent/rules/project-management.md`
 
 ## ワークフロー（スキル）
 
