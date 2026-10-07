@@ -196,4 +196,29 @@ OSによる `/tmp` の定期削除は、強制終了時に残った領域へのf
 4. 不足を判断し、`sync_tree.py` / `sync_files.py` / `apply_packages.py` で環境を整える。
 5. 再実行して通るまで 3〜4 を繰り返す。
 
-</content>
+
+## container.py — コンテナ解析・image移送計画
+
+- **用途**: プロジェクトで定義したengine・image・移送元・移送先・参照containerを使い、Docker/Podmanのcontainer inspectを共通モデルへ正規化し、run候補とimage移送計画を出力する。
+- **設定**: `desired_state/container.local.json`（Git管理外）。最低限、`engine`（`podman`または`docker`）、`image`、`source_target`、`destination_target`、`container`を指定する。`transfer_mode`は既定`export`で、必要な場合だけ`commit`を指定する。
+- **対応engine**: 初期対応はPodman→Podman、Docker→Docker。同じengine内の移送だけを扱い、Podman/Docker間の変換は対象外。
+- **基本実行**:
+
+  ```powershell
+  # 読み取り解析、run候補、image移送計画を出力
+  uv run python scripts/container.py --project project-a
+
+  # 計画を確認後、明示承認してimage移送を実行（runは実行しない）
+  uv run python scripts/container.py --project project-a --execute-image --approve-image
+  ```
+
+- **通常の移送**: 移送元で`podman export` / `docker export`、移送先で`podman import` / `docker import`を使う。元imageの履歴やDockerfileは復元しない。
+- **高再現性の移送**: `transfer_mode=commit`のときだけ、承認後に`commit` → `save/load`を使う。移送元のimage storeを変更するため、通常方式より影響が大きい。
+- **出力**: `build_env/logs/<project-id>/container_plan_<timestamp>/container-plan.json`へ、inspect要約、環境変数参照へ置換したrun候補、image移送計画、警告、未対応項目を保存する。
+- **run候補の初期対応**: image、name、command/entrypoint、environment、workdir、user、port、bind mount、network、restart policy。resource制限、capability、device/GPU、namespace、healthcheck等は解析・警告まで。
+- **外部依存**: bind mountの通常ファイル・ディレクトリはdesired stateへ明示した場合だけ既存の`sync_files.py` / `sync_tree.py`で扱う。named volume、secret、device/GPU、networkは自動移送しない。
+- **秘密情報**: password/token等は実値を保存せず、`${ENVB_CONTAINER_<KEY>}`形式の環境変数参照へ置き換える。secret/configの内容は収集しない。
+- **権限**: rootless/rootfulを自動切替しない。基本は移送元・移送先の実行コンテキストを揃え、差異は計画の警告とする。sudo/suは使わない。
+- **承認**: image移送は`--execute-image --approve-image`を併用した場合だけ実行する。run候補は表示するだけで、自動runしない。
+- **失敗時**: archiveと専用作業領域はcleanupする。作成済みimageは自動削除せず、ID・digest・状態をmanifestへ記録する。同名tagは上書きしない。
+- **安全性**: archiveは`build_env/work/<work-id>/`とリモートの専用`/tmp/env_builder-<work-id>-XXXXXX/`だけに置き、Gitへ保存しない。参照元の`src`ではexportは読み取り操作として扱い、commitは明示承認なしに実行しない。
