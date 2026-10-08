@@ -1,6 +1,6 @@
 # Tasks
 - [x] [ENVB-0001] [security] sync_tree における引数展開起因のリモートコマンドインジェクション脆弱性 <!-- priority:medium issue:#1 theme:security stage:ready completed:2026-10-08 -->
-- [ ] [ENVB-0002] [security] ssh における AutoAddPolicy 使用による中間者攻撃（MitM）許容のリスク <!-- priority:medium issue:#2 theme:security stage:ready added:2026-10-08 -->
+- [x] [ENVB-0002] [security] ssh における AutoAddPolicy 使用による中間者攻撃（MitM）許容のリスク <!-- priority:medium issue:#2 theme:security stage:ready completed:2026-10-08 -->
 - [x] [ENVB-0003] [security] sync_tree における /tmp 配下の予測可能なファイル名使用によるシンボリックリンク攻撃のリスク <!-- priority:medium issue:#3 theme:security stage:ready completed:2026-10-08 -->
 - [x] [ENVB-0004] SSH接続のkeepalive追加で長時間処理の途中切断を防ぐ <!-- priority:medium issue:#4 theme:security stage:ideation completed:2026-10-08 -->
 - [x] [ENVB-0005] [design] 作業用一時領域と終了時cleanupを統一 <!-- priority:medium issue:#9 theme:security stage:ideation completed:2026-10-08 -->

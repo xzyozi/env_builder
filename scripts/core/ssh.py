@@ -18,6 +18,7 @@ except ImportError as e:  # pragma: no cover - 依存未導入時の明確なエ
     raise ImportError("paramiko が必要です。`uv sync` もしくは `uv add paramiko` で導入してください。") from e
 
 from .config import Inventory, ServerSpec
+from .host_keys import configure_host_keys
 
 # dst の seigyo はログインシェルで tset を実行するため、非対話SSHでは
 # stdout 末尾に "logout"、stderr に "tset: terminal attributes: ..." が
@@ -60,9 +61,13 @@ class SSHResult:
 
 
 def _connect_one(spec: ServerSpec, sock: Optional[object] = None) -> "paramiko.SSHClient":
-    """単一ホストへ接続した SSHClient を返す。sock は踏み台チャネル。"""
+    """単一ホストへ接続した SSHClient を返す。sock は踏み台チャネル。
+
+    ホスト鍵は known_hosts で検証し、未登録の鍵は既定で拒否する（host_keys.py）。
+    検証に失敗した場合や接続が途中で中断された場合は、開きかけた接続を閉じる。
+    """
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    configure_host_keys(client)
 
     connect_kwargs: dict = {
         "hostname": spec.host,
@@ -84,13 +89,17 @@ def _connect_one(spec: ServerSpec, sock: Optional[object] = None) -> "paramiko.S
         if key_path:
             connect_kwargs["key_filename"] = str(key_path)
 
-    client.connect(**connect_kwargs)
+    try:
+        client.connect(**connect_kwargs)
 
-    # 接続維持のため keepalive を有効化する（OpenSSH の ServerAliveInterval 相当）。
-    # 踏み台・最終ホストとも同じ設定にし、無音の長時間処理での切断を防ぐ。
-    transport = client.get_transport()
-    if transport is not None:
-        transport.set_keepalive(_KEEPALIVE_INTERVAL_SEC)
+        # 接続維持のため keepalive を有効化する（OpenSSH の ServerAliveInterval 相当）。
+        # 踏み台・最終ホストとも同じ設定にし、無音の長時間処理での切断を防ぐ。
+        transport = client.get_transport()
+        if transport is not None:
+            transport.set_keepalive(_KEEPALIVE_INTERVAL_SEC)
+    except BaseException:
+        client.close()
+        raise
 
     return client
 
