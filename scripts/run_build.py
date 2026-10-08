@@ -14,6 +14,7 @@ desired_state/build_targets.local.json の定義に従い、リモートの作�
 from __future__ import annotations
 
 import argparse
+import shlex
 import sys
 from pathlib import Path
 
@@ -21,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import DESIRED_STATE_DIR, load_inventory, load_json  # noqa: E402
 from core.logging_utils import get_logger, new_run_dir  # noqa: E402
 from core.project import ProjectRegistry  # noqa: E402
+from core.shell import quote_remote_path, validate_env_name  # noqa: E402
 from core.ssh import EXIT_CODE_INTERRUPTED, SSHInterrupted, SSHSession  # noqa: E402
 
 
@@ -67,6 +69,23 @@ def _has_build_error(stderr: str) -> bool:
     return any(marker in stderr for marker in _BUILD_ERROR_MARKERS)
 
 
+def _env_prefix(env: dict) -> str:
+    """環境変数の export 前置きを組み立てる。
+
+    変数名は検証し、値はリテラルとしてクォートする（シェル展開はしない）。
+    """
+    return "".join(f"export {validate_env_name(key)}={shlex.quote(str(value))}; " for key, value in env.items())
+
+
+def _step_command(workdir: str, env_prefix: str, cmd: str) -> str:
+    """1 ステップ分のリモートコマンドを組み立てる。
+
+    workdir はクォートする（先頭の `~` はホームディレクトリ）。cmd は desired_state が定義する
+    ビルド手順そのものなので、シェルコマンドとして渡し、クォートしない。
+    """
+    return f"cd -- {quote_remote_path(workdir)} && {env_prefix}{cmd}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default=None, help="build_targets の name。未指定なら先頭")
@@ -101,8 +120,13 @@ def main() -> int:
     commands = target.get("commands", [])
     env = target.get("env", {})
 
-    # 環境変数の export 前置き
-    env_prefix = "".join(f"export {k}={v}; " for k, v in env.items())
+    # リモートへ何も送る前に、環境変数名と作業ディレクトリを検証する。
+    try:
+        env_prefix = _env_prefix(env)
+        quote_remote_path(workdir)
+    except ValueError as exc:
+        logger.error("build_targets の内容が不正です: %s", exc)
+        return 1
 
     logger.info("build 開始: target=%s server=%s workdir=%s", target.get("name"), server, workdir)
 
@@ -110,7 +134,7 @@ def main() -> int:
     interrupted = False
     with SSHSession(inv, server) as ssh:
         for i, cmd in enumerate(commands, 1):
-            full = f"cd {workdir} && {env_prefix}{cmd}"
+            full = _step_command(workdir, env_prefix, cmd)
             logger.info("[%d/%d] %s", i, len(commands), cmd)
 
             # 実行中の出力を逐次ファイルへ追記する。タイムアウトや Ctrl+C で途中終了しても、
