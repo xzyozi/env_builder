@@ -6,6 +6,6 @@
 - [x] [ENVB-0005] [design] 作業用一時領域と終了時cleanupを統一 <!-- priority:medium issue:#9 theme:security stage:ideation completed:2026-10-08 -->
 - [ ] [ENVB-0006] [bug] SSH実行の無応答とユーザー中断の未対応 <!-- priority:medium issue:#11 theme:security stage:ideation added:2026-10-08 -->
 - [x] [ENVB-0007] [enhancement] 配下プロジェクトをプロファイル単位で管理する <!-- priority:medium issue:#12 theme:security stage:ideation completed:2026-10-08 -->
-- [ ] [ENVB-0008] [design] scripts をパッケージ化し、CLI・共通基盤・処理本体を分離する <!-- priority:medium issue:#15 theme:security stage:ideation added:2026-10-08 -->
+- [x] [ENVB-0008] [design] scripts をパッケージ化し、CLI・共通基盤・処理本体を分離する <!-- priority:medium issue:#15 theme:security stage:ideation added:2026-10-08 completed:2026-10-08 -->
 - [x] [ENVB-0009] [enhancement] Podman/Docker共通のimage取得・移送とコンテナ起動仕様解析を追加する <!-- priority:medium issue:#16 theme:security stage:ideation completed:2026-10-08 -->
 - [x] [ENVB-0010] [security] apply_packages / run_build における引数展開起因のシェルコマンドインジェクション <!-- priority:medium issue:pending theme:security stage:ready added:2026-10-08 completed:2026-10-08 -->

@@ -2,7 +2,7 @@
 
 構成:
 - env_builder.core: 設定読込・SSH実行・作業領域・ログなどの共通ライブラリ（判断は持たない）
-- env_builder.ops:  SSHを伴う上位処理（現状は container）
+- env_builder.ops:  SSHを伴う上位処理（packages / build / transfer / container）。セッションは引数で受け取る
 - env_builder.cli:  引数解析・表示・終了コードだけを担うコマンド（1コマンド1ファイル）
 
 実行方法:

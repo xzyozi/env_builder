@@ -56,8 +56,13 @@ env_builder/
 │   │   ├── shell.py            # リモートシェルへ渡す値のクォート・検証
 │   │   ├── work_context.py     # 作業ID・一時領域・cleanup・manifest
 │   │   ├── logging_utils.py    # ログ出力
+│   │   ├── desired_state.py    # desired_state/ の定義ファイル（packages / files / build_targets）の読み込み
 │   │   └── container/          # containerモデル・inspect正規化・engine adapter
-│   └── ops/                    # SSHを伴う上位処理
+│   └── ops/                    # SSHを伴う上位処理（接続は作らず、セッションを引数で受け取る）
+│       ├── session.py          # 受け取るセッションの型（CommandRunner / FileTransfer / RemoteSession）
+│       ├── packages.py         # パッケージの導入済み判定・冪等な導入
+│       ├── build.py            # build 手順の実行・成否判定・実行中ログ
+│       ├── transfer.py         # ファイル・ディレクトリの src→PC→dst 中継転送
 │       └── container.py        # container inspect・image移送
 ├── scripts/                    # 互換ラッパー（従来の scripts/<name>.py を使い続けるため）
 │   └── <command>.py            # env_builder.cli.<command>.main を呼ぶだけ。sys.path を操作するのはここだけ
