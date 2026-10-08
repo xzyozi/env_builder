@@ -34,7 +34,10 @@ uv run pytest                  # テスト（tests/ 配下）
   `main(argv=None) -> int` を公開し、`env_builder/cli/__init__.py` の `COMMANDS` に登録する。
 - `env_builder/core/`: **ライブラリ**。責務は **設定読込・SSH 実行・作業領域・ログ出力** などの
   共通処理に限定する。build ロジックや冪等判定・実行順序といった**判断**は持たせない。
-- `env_builder/ops/`: SSH を伴う上位処理（現状は container）。
+- `env_builder/ops/`: SSH を伴う上位処理（`packages` / `build` / `transfer` / `container`）。
+  **接続は内部で作らず**、`run()` / `get_file()` / `put_file()` を持つセッション（型は
+  `env_builder/ops/session.py`）を引数で受け取る。本番では `SSHSession` を、テストでは fake を渡す。
+  失敗は例外ではなく戻り値（成否・結果オブジェクト）で返し、理由はログに出す。
 
 ルール:
 

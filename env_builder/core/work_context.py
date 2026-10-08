@@ -17,7 +17,7 @@ from .config import BUILD_ENV_DIR
 from .project import validate_project_id
 
 if TYPE_CHECKING:
-    from .ssh import SSHSession
+    from .ssh import CommandRunner
 
 
 _REMOTE_WORK_PREFIX = "env_builder-"
@@ -88,7 +88,7 @@ class WorkContext:
         """作業本体が成功したことを記録する。"""
         self._completed = True
 
-    def create_remote_workspace(self, ssh: "SSHSession", target: str, timeout: int = 120) -> str:
+    def create_remote_workspace(self, ssh: "CommandRunner", target: str, timeout: int = 120) -> str:
         """リモートの /tmp 直下に専用作業ディレクトリを作成する。"""
         template = f"/tmp/{_REMOTE_WORK_PREFIX}{self.work_id}-XXXXXX"
         quoted_template = shlex.quote(template)
@@ -124,7 +124,7 @@ class WorkContext:
 
     def cleanup_remote_workspace(
         self,
-        ssh: "SSHSession",
+        ssh: "CommandRunner",
         target: str,
         path: str,
         timeout: int = 120,

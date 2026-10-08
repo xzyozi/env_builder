@@ -24,7 +24,7 @@ import codecs
 import logging
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Protocol
 
 try:
     import paramiko
@@ -70,6 +70,22 @@ _monotonic = time.monotonic
 _sleep = time.sleep
 
 OutputCallback = Callable[[str, str], None]
+
+
+class CommandRunner(Protocol):
+    """リモートで 1 コマンドを実行できるもの（`SSHSession` や、テスト用の fake が満たす）。
+
+    コマンド実行だけを必要とする処理（`WorkContext` の作業領域の作成・削除など）が、
+    具体的な `SSHSession` に依存せずに済むよう、必要な機能だけを型として切り出している。
+    """
+
+    def run(
+        self,
+        command: str,
+        timeout: int = 600,
+        *,
+        on_output: Optional[OutputCallback] = None,
+    ) -> "SSHResult": ...
 
 
 def _strip_shell_noise(text: str, patterns_prefix=(), patterns_substr=()) -> str:
