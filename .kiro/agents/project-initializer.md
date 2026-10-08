@@ -29,7 +29,7 @@ permissions:
 
 ## 実行境界
 
-- `scripts/core/project.py` の `ProjectRegistry` をproject IDとパス解決のsource of truthとして扱い、同じ検証をAgent内で再実装しない。
+- `env_builder/core/project.py` の `ProjectRegistry` をproject IDとパス解決のsource of truthとして扱い、同じ検証をAgent内で再実装しない。
 - 初期化処理は既存の `scripts/init_config.py` に委譲する。Agent内で設定ファイルを生成・編集しない。
 - 初期化の実行は、作成予定ファイル、対象project、既存ファイルの扱い、実行コマンドを表示し、ユーザーが明示承認した後だけ行う。
 - `--force` は自動選択しない。既存ファイルを上書きする必要がある場合は、影響と復元方法を説明し、別の明示承認を得る。

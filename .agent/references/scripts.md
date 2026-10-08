@@ -4,8 +4,13 @@
 叩き、出力をどう解釈するかはエージェントが判断する。ここは「各スクリプトが何をする道具か」
 「どこまでがスクリプトの責務で、どこからがエージェントの判断か」を言語化したもの。
 
-すべて `uv run python scripts/<name>.py ...` で実行する。接続対象は `inventory/servers.json`
-の**キー名**（`src` / `dst` / `dst_root` / `bastion` など）で指定する。
+標準の実行形式は `uv run python -m env_builder <command> ...`。従来の
+`uv run python scripts/<command>.py ...` は互換ラッパーで、同じコマンドを呼ぶ（引数・既定値・
+終了コード・ログの出力先は同じ）。コマンドの実装は `env_builder/cli/<command>.py`、共通
+ライブラリは `env_builder/core/`、SSH を伴う上位処理は `env_builder/ops/` にある。以降の各節の
+実行例は `scripts/<command>.py` の形で書いてあるが、`python -m env_builder <command>` に
+読み替えられる。接続対象は `inventory/servers.json` の**キー名**（`src` / `dst` / `dst_root` /
+`bastion` など）で指定する。
 
 ## ProjectProfile / --project
 
@@ -51,7 +56,7 @@ profile解決を担当する。Agentはこれらの処理を再実装しない�
 
 ## 作業コンテキスト（WorkContext）
 
-`scripts/core/work_context.py` が1回の転送作業に作業IDと一時領域を割り当てる。
+`env_builder/core/work_context.py` が1回の転送作業に作業IDと一時領域を割り当てる。
 
 - ローカル中継: `build_env/work/<work-id>/stage/`
 - リモート中継: `/tmp/env_builder-<work-id>-XXXXXX/`（各接続先で生成）

@@ -37,6 +37,6 @@
 
 ## コミット対象（このリポジトリで管理するもの）
 
-- 汎用スクリプト（`scripts/` と `scripts/core/`）
+- 実装本体（`env_builder/` パッケージ）、互換ラッパー（`scripts/`）、テスト（`tests/`）
 - `.agent/` 配下の知識ベース、ルート `AGENTS.md` / `CLAUDE.md`
 - `.kiro/steering/agent-bridge.md`（ブリッジのみ。他の `.kiro/` は除外）
