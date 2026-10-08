@@ -37,13 +37,17 @@ env_builder/
 ├── scripts/                    # 手元PCから叩く汎用スクリプト（Python）
 │   ├── core/                   # 共通ライブラリ（コミット対象）
 │   │   ├── config.py           # 設定読込（コメント付きJSON対応）
+│   │   ├── container/          # containerモデル・inspect正規化・engine adapter
 │   │   ├── ssh.py              # 踏み台越しSSH実行・SFTP転送（昇格なし）
 │   │   ├── work_context.py     # 作業ID・一時領域・cleanup・manifest
-│   │   └── logging_utils.py     # ログ出力
+│   │   └── logging_utils.py    # ログ出力
+│   ├── ops/                    # SSHを伴う上位処理
+│   │   └── container.py        # container inspect・image移送
 │   ├── init_config.py          # sample から実体ファイルを生成
 │   ├── check_connectivity.py   # 疎通確認（whoami/hostname）
 │   ├── probe_src.py            # src の現状収集（OSSバージョン等）
 │   ├── remote_exec.py          # 任意コマンドによる調査
+│   ├── container.py            # container解析・image計画・run候補CLI
 │   ├── run_build.py            # dst でコマンド実行 → ログ回収
 │   ├── apply_packages.py       # packages 定義に沿って導入（root前提）
 │   ├── sync_files.py           # 設定ファイルの src→PC→dst 仲介
@@ -112,6 +116,51 @@ uv run python scripts/run_build.py --project project-a --target main
 
 プロジェクトを指定しない既存コマンドは、従来どおりリポジトリ直下の設定を使います。
 プロファイルの選択・agent規約の適用順序・安全境界は `.agent/rules/project-management.md` を参照してください。
+
+## コンテナ解析・image移送
+
+コンテナ機能は、プロジェクト設定でengineと使用imageを決めてから実行します。DockerとPodmanの
+相互変換は初期対象外で、同じengine間だけを扱います。
+
+- Podman → Podman
+- Docker → Docker
+
+プロジェクトの`desired_state/container.local.json`に、実行engine、image、移送元・移送先の
+inventory target、参照containerを定義します。このファイルは`desired_state/`配下のためGit管理外です。
+
+```json
+{
+  "engine": "podman",
+  "image": "registry.example/app:stable",
+  "source_target": "src",
+  "destination_target": "dst",
+  "container": "app",
+  "transfer_mode": "export",
+  "secret_env_prefix": "ENVB_CONTAINER_"
+}
+```
+
+通常は移送元を変更しない`export/import`を使います。高い再現性が必要な場合だけ、設定の
+`transfer_mode`を`commit`に変更し、明示承認後に`commit`と`save/load`を実行します。元imageの
+履歴やDockerfileの完全復元は保証しません。
+
+```powershell
+# 読み取り解析、image移送計画、run候補の表示
+uv run python scripts/container.py --project project-a
+
+# 計画を確認し、承認済みのimage移送を実行（runは実行しない）
+uv run python scripts/container.py --project project-a --execute-image --approve-image
+```
+
+解析結果は`build_env/logs/<project-id>/container_plan_<timestamp>/container-plan.json`に保存され、
+人間向けの`podman run` / `docker run`候補、機械可読JSON、image移送計画、警告を出力します。
+run候補は自動実行されません。bind mountの通常ファイル・ディレクトリは、desired stateに明示した
+場合だけ既存の`sync_files.py` / `sync_tree.py`で扱います。volume、secret、device/GPU、networkは
+自動移送せず、要確認事項として出力します。
+
+image移送は承認後に実行されますが、失敗時も既存imageを自動削除しません。archiveと専用作業領域は
+cleanupし、作成済みimageのID・digest・状態はmanifestへ記録します。rootless/rootfulを自動で
+切り替えず、実行ユーザーとUID/GIDの差異は計画へ警告します。
 
 ## 初期設定Agentで始める
 
@@ -196,8 +245,9 @@ CI の失敗を事前に防げる。
 
 `scripts/core` は、上位スクリプト（`remote_exec.py` / `check_connectivity.py`
 など）が共通で使うライブラリ。責務は **設定読込・SSH実行・ファイル転送・作業領域・ログ出力**
-に限定し、build ロジックや冪等判定といった判断は持たない。実行判断（どのコマンドをどの順で
-流すか、出力をどう解釈するか）は呼び出し側の責務。
+に限定し、build ロジックや冪等判定といった判断は持たない。containerの純粋なモデル・
+inspect正規化・run候補生成もここに置き、SSHを伴うcontainer処理は`scripts/ops`へ分離する。
+実行判断（どのコマンドをどの順で流すか、出力をどう解釈するか）は呼び出し側の責務。
 
 公開シンボル（`__init__.py` で re-export）:
 
