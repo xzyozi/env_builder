@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from scripts.core.container.context import compare_runtime_contexts, normalize_runtime_context
-from scripts.core.container.engines import get_engine_adapter
-from scripts.core.container.image_plan import build_image_transfer_plan, snapshot_image_ref
-from scripts.core.container.inspect import InspectionError, normalize_container_inspection, parse_inspect_json
-from scripts.core.container.models import ContainerProjectConfig
-from scripts.core.container.project_config import load_container_config
-from scripts.core.container.run_spec import render_run_command
+from env_builder.core.container.context import compare_runtime_contexts, normalize_runtime_context
+from env_builder.core.container.engines import get_engine_adapter
+from env_builder.core.container.image_plan import build_image_transfer_plan, snapshot_image_ref
+from env_builder.core.container.inspect import InspectionError, normalize_container_inspection, parse_inspect_json
+from env_builder.core.container.models import ContainerProjectConfig
+from env_builder.core.container.project_config import load_container_config
+from env_builder.core.container.run_spec import render_run_command
 
 
 @pytest.fixture

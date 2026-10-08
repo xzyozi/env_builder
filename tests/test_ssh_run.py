@@ -8,8 +8,8 @@ from typing import List, Optional
 
 import pytest
 
-from scripts.core import ssh as ssh_module
-from scripts.core.ssh import (
+from env_builder.core import ssh as ssh_module
+from env_builder.core.ssh import (
     EXIT_CODE_INTERRUPTED,
     EXIT_CODE_TIMEOUT,
     STATUS_COMPLETED,
@@ -310,7 +310,7 @@ class _FakeConnectClient:
 
 def test_enter_closes_already_opened_hops_when_a_later_connection_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     """踏み台までは繋がったが最終ホストの接続に失敗した場合、開いた踏み台を閉じる。"""
-    from scripts.core.config import AuthSpec, Inventory, ServerSpec
+    from env_builder.core.config import AuthSpec, Inventory, ServerSpec
 
     inventory = Inventory(
         servers={
@@ -343,7 +343,7 @@ def test_enter_closes_already_opened_hops_when_a_later_connection_fails(monkeypa
 
 
 def test_enter_closes_hops_when_interrupted_during_connect(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scripts.core.config import AuthSpec, Inventory, ServerSpec
+    from env_builder.core.config import AuthSpec, Inventory, ServerSpec
 
     inventory = Inventory(
         servers={
@@ -392,7 +392,7 @@ def test_test_harness_aborts_instead_of_hanging_when_time_never_advances(
 
 def test_workspace_cleanup_runs_when_command_is_interrupted(tmp_path, clock: FakeClock) -> None:
     """コマンド実行中の Ctrl+C でも、専用作業領域とローカルの一時領域が片付く。"""
-    from scripts.core.work_context import WorkContext
+    from env_builder.core.work_context import WorkContext
 
     commands: List[str] = []
 

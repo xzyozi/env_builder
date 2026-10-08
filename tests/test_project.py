@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts.core.config import BUILD_ENV_DIR, DESIRED_STATE_DIR, INVENTORY_DIR, REPO_ROOT
-from scripts.core.project import ProjectRegistry
+from env_builder.core.config import BUILD_ENV_DIR, DESIRED_STATE_DIR, INVENTORY_DIR, REPO_ROOT
+from env_builder.core.project import ProjectRegistry
 
 
 def test_resolve_without_project_preserves_legacy_paths() -> None:

@@ -1,0 +1,102 @@
+"""desired_state/packages.json に従い、構築先へ OSS パッケージを冪等に適用する。
+
+Ansible の package タスク相当。既に導入済みならスキップし、未導入のものだけ
+インストールする。--check で「何が不足しているか」だけを表示する dry-run も可能。
+
+使い方:
+    uv run python scripts/apply_packages.py --check      # 差分確認のみ
+    uv run python scripts/apply_packages.py              # 適用（dst は root ログイン前提）
+    uv run python scripts/apply_packages.py --target dst
+"""
+
+from __future__ import annotations
+
+import argparse
+import shlex
+from pathlib import Path
+from typing import List, Optional, Sequence
+
+from env_builder.cli._common import add_project_argument
+from env_builder.core.config import DESIRED_STATE_DIR, load_inventory, load_json
+from env_builder.core.logging_utils import get_logger
+from env_builder.core.project import ProjectRegistry
+from env_builder.core.shell import validate_command_name, validate_package_name
+from env_builder.core.ssh import SSHSession
+
+
+def _load_packages(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
+    path = desired_state_dir / "packages.json"
+    if not path.exists():
+        sample = desired_state_dir / "packages.sample.json"
+        raise FileNotFoundError(f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。")
+    return load_json(path)
+
+
+def _rpm_query_command(pkg: str) -> str:
+    """導入済みかを rpm で調べるコマンド。名前は検証・クォートし、`--` でオプション誤認を防ぐ。"""
+    return f"rpm -q -- {shlex.quote(validate_package_name(pkg))} >/dev/null 2>&1; echo $?"
+
+
+def _install_command(pm: str, packages: List[str]) -> str:
+    """未導入のパッケージをまとめて導入するコマンド。名前とパッケージマネージャを検証・クォートする。"""
+    names = " ".join(shlex.quote(validate_package_name(pkg)) for pkg in packages)
+    return f"{shlex.quote(validate_command_name(pm))} install -y {names}"
+
+
+def _is_installed(ssh: SSHSession, pkg: str) -> bool:
+    res = ssh.run(_rpm_query_command(pkg))
+    return res.stdout.strip().endswith("0")
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", default="dst", help="適用対象（inventory のキー）")
+    add_project_argument(parser)
+    parser.add_argument("--check", action="store_true", help="dry-run（差分のみ表示）")
+    args = parser.parse_args(argv)
+
+    profile = ProjectRegistry().resolve(args.project)
+    logger = get_logger(project_id=profile.project_id)
+    cfg = _load_packages(profile.desired_state_dir)
+    pm = cfg.get("package_manager", "dnf")
+    packages = [p["name"] for p in cfg.get("packages", []) if p.get("state", "present") == "present"]
+
+    # リモートへ何も送る前に、パッケージ名とパッケージマネージャを検証する。
+    try:
+        validate_command_name(pm)
+        for name in packages:
+            validate_package_name(name)
+    except ValueError as exc:
+        logger.error("packages.json の内容が不正です: %s", exc)
+        return 1
+
+    inv = load_inventory(profile.inventory_path)
+
+    logger.info("%s の状態を確認します（package_manager=%s）", args.target, pm)
+    with SSHSession(inv, args.target) as ssh:
+        missing = [p for p in packages if not _is_installed(ssh, p)]
+
+        if not missing:
+            logger.info("すべて導入済み。変更なし（冪等）。")
+            return 0
+
+        logger.info("未導入: %s", ", ".join(missing))
+        if args.check:
+            logger.info("--check 指定のため適用しません。")
+            return 0
+
+        # sudo は使わない方針。dst は root でログインしている前提。
+        install_cmd = _install_command(pm, missing)
+        logger.info("インストールを実行します: %s", install_cmd)
+        res = ssh.run(install_cmd, timeout=1800)
+        if res.ok:
+            logger.info("インストール成功")
+            return 0
+        logger.error("インストール失敗 exit=%d", res.exit_code)
+        for line in res.stderr.strip().splitlines()[-15:]:
+            logger.error("  | %s", line)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

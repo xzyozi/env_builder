@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 
-from scripts.apply_packages import _load_packages
-from scripts.core.project import ProjectRegistry
-from scripts.run_build import _load_targets
-from scripts.sync_files import _load_files
+from env_builder.cli.apply_packages import _load_packages
+from env_builder.cli.run_build import _load_targets
+from env_builder.cli.sync_files import _load_files
+from env_builder.core.project import ProjectRegistry
 
 
 def test_run_build_loader_uses_selected_project_state(tmp_path: Path) -> None:

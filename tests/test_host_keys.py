@@ -9,7 +9,7 @@ from pathlib import Path
 import paramiko
 import pytest
 
-from scripts.core.host_keys import (
+from env_builder.core.host_keys import (
     KNOWN_HOSTS_ENV,
     POLICY_ENV,
     AcceptNewHostKeyPolicy,
