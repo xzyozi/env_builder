@@ -12,32 +12,21 @@ Ansible の package タスク相当。既に導入済みならスキップし、
 from __future__ import annotations
 
 import argparse
-import shlex
-from typing import List, Optional, Sequence
+from typing import Optional, Sequence
 
 from env_builder.cli._common import add_project_argument
 from env_builder.core.config import load_inventory
 from env_builder.core.desired_state import load_packages
 from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectRegistry
-from env_builder.core.shell import validate_command_name, validate_package_name
 from env_builder.core.ssh import SSHSession
-
-
-def _rpm_query_command(pkg: str) -> str:
-    """導入済みかを rpm で調べるコマンド。名前は検証・クォートし、`--` でオプション誤認を防ぐ。"""
-    return f"rpm -q -- {shlex.quote(validate_package_name(pkg))} >/dev/null 2>&1; echo $?"
-
-
-def _install_command(pm: str, packages: List[str]) -> str:
-    """未導入のパッケージをまとめて導入するコマンド。名前とパッケージマネージャを検証・クォートする。"""
-    names = " ".join(shlex.quote(validate_package_name(pkg)) for pkg in packages)
-    return f"{shlex.quote(validate_command_name(pm))} install -y {names}"
-
-
-def _is_installed(ssh: SSHSession, pkg: str) -> bool:
-    res = ssh.run(_rpm_query_command(pkg))
-    return res.stdout.strip().endswith("0")
+from env_builder.ops.packages import (
+    find_missing,
+    install_command,
+    install_missing,
+    parse_packages_config,
+    validate_package_config,
+)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -50,14 +39,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     profile = ProjectRegistry().resolve(args.project)
     logger = get_logger(project_id=profile.project_id)
     cfg = load_packages(profile.desired_state_dir)
-    pm = cfg.get("package_manager", "dnf")
-    packages = [p["name"] for p in cfg.get("packages", []) if p.get("state", "present") == "present"]
+    pm, packages = parse_packages_config(cfg)
 
     # リモートへ何も送る前に、パッケージ名とパッケージマネージャを検証する。
     try:
-        validate_command_name(pm)
-        for name in packages:
-            validate_package_name(name)
+        validate_package_config(pm, packages)
     except ValueError as exc:
         logger.error("packages.json の内容が不正です: %s", exc)
         return 1
@@ -66,7 +52,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     logger.info("%s の状態を確認します（package_manager=%s）", args.target, pm)
     with SSHSession(inv, args.target) as ssh:
-        missing = [p for p in packages if not _is_installed(ssh, p)]
+        missing = find_missing(ssh, packages)
 
         if not missing:
             logger.info("すべて導入済み。変更なし（冪等）。")
@@ -78,9 +64,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 0
 
         # sudo は使わない方針。dst は root でログインしている前提。
-        install_cmd = _install_command(pm, missing)
-        logger.info("インストールを実行します: %s", install_cmd)
-        res = ssh.run(install_cmd, timeout=1800)
+        logger.info("インストールを実行します: %s", install_command(pm, missing))
+        res = install_missing(ssh, pm, missing)
         if res.ok:
             logger.info("インストール成功")
             return 0

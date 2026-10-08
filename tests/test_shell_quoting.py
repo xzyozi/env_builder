@@ -8,7 +8,6 @@ import shlex
 
 import pytest
 
-from env_builder.cli.apply_packages import _install_command, _rpm_query_command
 from env_builder.cli.run_build import _env_prefix, _step_command
 from env_builder.core.shell import (
     quote_remote_path,
@@ -16,6 +15,7 @@ from env_builder.core.shell import (
     validate_env_name,
     validate_package_name,
 )
+from env_builder.ops.packages import install_command, rpm_query_command
 
 HOSTILE_VALUES = [
     "a; touch /tmp/pwned",
@@ -85,7 +85,7 @@ def test_validate_command_name_rejects_paths_options_and_metacharacters(name: st
 
 
 def test_rpm_query_command_separates_options_and_quotes_name() -> None:
-    tokens = shlex.split(_rpm_query_command("libcurl-devel"))
+    tokens = shlex.split(rpm_query_command("libcurl-devel"))
 
     assert tokens[:4] == ["rpm", "-q", "--", "libcurl-devel"]
 
@@ -93,11 +93,11 @@ def test_rpm_query_command_separates_options_and_quotes_name() -> None:
 @pytest.mark.parametrize("hostile", HOSTILE_VALUES + ["-y", "--installroot=/tmp/x"])
 def test_rpm_query_command_rejects_hostile_package_names(hostile: str) -> None:
     with pytest.raises(ValueError):
-        _rpm_query_command(hostile)
+        rpm_query_command(hostile)
 
 
 def test_install_command_lists_each_package_as_one_argument() -> None:
-    tokens = shlex.split(_install_command("dnf", ["gcc", "libcurl-devel", "pkg-1.2-3.el8.x86_64"]))
+    tokens = shlex.split(install_command("dnf", ["gcc", "libcurl-devel", "pkg-1.2-3.el8.x86_64"]))
 
     assert tokens == ["dnf", "install", "-y", "gcc", "libcurl-devel", "pkg-1.2-3.el8.x86_64"]
 
@@ -105,13 +105,13 @@ def test_install_command_lists_each_package_as_one_argument() -> None:
 @pytest.mark.parametrize("hostile", HOSTILE_VALUES + ["-y", "--installroot=/tmp/x"])
 def test_install_command_rejects_hostile_package_names(hostile: str) -> None:
     with pytest.raises(ValueError):
-        _install_command("dnf", ["gcc", hostile])
+        install_command("dnf", ["gcc", hostile])
 
 
 @pytest.mark.parametrize("hostile", ["dnf; reboot", "dnf && reboot", "$(reboot)", "/tmp/evil", "dnf -y"])
 def test_install_command_rejects_hostile_package_manager(hostile: str) -> None:
     with pytest.raises(ValueError):
-        _install_command(hostile, ["gcc"])
+        install_command(hostile, ["gcc"])
 
 
 def test_quote_remote_path_quotes_plain_and_hostile_paths() -> None:
