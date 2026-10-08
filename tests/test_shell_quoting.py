@@ -8,13 +8,13 @@ import shlex
 
 import pytest
 
-from env_builder.cli.run_build import _env_prefix, _step_command
 from env_builder.core.shell import (
     quote_remote_path,
     validate_command_name,
     validate_env_name,
     validate_package_name,
 )
+from env_builder.ops.build import env_prefix, step_command
 from env_builder.ops.packages import install_command, rpm_query_command
 
 HOSTILE_VALUES = [
@@ -149,14 +149,14 @@ def test_quote_remote_path_rejects_empty_and_nul(path: str) -> None:
 
 
 def test_env_prefix_exports_values_as_literals() -> None:
-    prefix = _env_prefix({"VERSION_MNG": "/opt/mel/modern/lib64/version_mng"})
+    prefix = env_prefix({"VERSION_MNG": "/opt/mel/modern/lib64/version_mng"})
 
     assert prefix == "export VERSION_MNG=/opt/mel/modern/lib64/version_mng; "
 
 
 @pytest.mark.parametrize("hostile", HOSTILE_VALUES)
 def test_env_prefix_keeps_hostile_value_as_single_literal(hostile: str) -> None:
-    prefix = _env_prefix({"FOO": hostile})
+    prefix = env_prefix({"FOO": hostile})
     # 末尾の `; ` は意図した区切り。これを取り除いた `export FOO=<値>` が、ちょうど 2 つの引数になる。
     assert prefix.endswith("; ")
     tokens = shlex.split(prefix[: -len("; ")])
@@ -166,7 +166,7 @@ def test_env_prefix_keeps_hostile_value_as_single_literal(hostile: str) -> None:
 
 
 def test_env_prefix_chains_multiple_variables_as_separate_export_commands() -> None:
-    prefix = _env_prefix({"A": "1; touch /tmp/pwned", "B": "2"})
+    prefix = env_prefix({"A": "1; touch /tmp/pwned", "B": "2"})
 
     # posix=True の shlex は `;` を単語の一部にしてしまうため、punctuation_chars で演算子として分解する。
     lexer = shlex.shlex(prefix, posix=True, punctuation_chars=";")
@@ -178,7 +178,7 @@ def test_env_prefix_chains_multiple_variables_as_separate_export_commands() -> N
 
 
 def test_env_prefix_does_not_expand_shell_variables_in_values() -> None:
-    prefix = _env_prefix({"P": "$HOME/x"})
+    prefix = env_prefix({"P": "$HOME/x"})
 
     assert prefix == "export P='$HOME/x'; "
 
@@ -186,18 +186,18 @@ def test_env_prefix_does_not_expand_shell_variables_in_values() -> None:
 @pytest.mark.parametrize("bad_name", ["A-B", "A B", "A=B", "A;B", "1A", "", "A$(x)"])
 def test_env_prefix_rejects_invalid_variable_names(bad_name: str) -> None:
     with pytest.raises(ValueError):
-        _env_prefix({bad_name: "x"})
+        env_prefix({bad_name: "x"})
 
 
 def test_step_command_quotes_workdir_and_keeps_build_command_as_shell() -> None:
-    command = _step_command("/home/seigyo/neo_app/src", "export A=1; ", "make clean && make -j4")
+    command = step_command("/home/seigyo/neo_app/src", "export A=1; ", "make clean && make -j4")
 
     assert command == "cd -- /home/seigyo/neo_app/src && export A=1; make clean && make -j4"
 
 
 def test_step_command_does_not_quote_the_build_command() -> None:
     # ビルド手順は desired_state が定義するシェルコマンドそのもの（演算子を含んでよい）
-    command = _step_command("/opt/x", "", "./configure && make; make install")
+    command = step_command("/opt/x", "", "./configure && make; make install")
 
     assert command.endswith("./configure && make; make install")
 
@@ -205,7 +205,7 @@ def test_step_command_does_not_quote_the_build_command() -> None:
 @pytest.mark.parametrize("hostile", HOSTILE_VALUES)
 def test_step_command_keeps_hostile_workdir_as_single_argument(hostile: str) -> None:
     workdir = "/opt/" + hostile
-    command = _step_command(workdir, "", "true")
+    command = step_command(workdir, "", "true")
     head = command.split(" && true")[0]
     tokens = shlex.split(head)
 
@@ -215,11 +215,11 @@ def test_step_command_keeps_hostile_workdir_as_single_argument(hostile: str) -> 
 
 
 def test_step_command_expands_tilde_workdir_through_home() -> None:
-    command = _step_command("~/neo_app/src", "", "make")
+    command = step_command("~/neo_app/src", "", "make")
 
     assert command == 'cd -- "$HOME"/neo_app/src && make'
 
 
 def test_step_command_rejects_empty_workdir() -> None:
     with pytest.raises(ValueError):
-        _step_command("", "", "make")
+        step_command("", "", "make")
