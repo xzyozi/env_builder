@@ -8,14 +8,14 @@ import shlex
 
 import pytest
 
-from scripts.apply_packages import _install_command, _rpm_query_command
-from scripts.core.shell import (
+from env_builder.cli.apply_packages import _install_command, _rpm_query_command
+from env_builder.cli.run_build import _env_prefix, _step_command
+from env_builder.core.shell import (
     quote_remote_path,
     validate_command_name,
     validate_env_name,
     validate_package_name,
 )
-from scripts.run_build import _env_prefix, _step_command
 
 HOSTILE_VALUES = [
     "a; touch /tmp/pwned",

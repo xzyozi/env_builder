@@ -6,15 +6,15 @@ import json
 import posixpath
 from typing import Any, Dict, Optional
 
-from core.config import Inventory, load_inventory
-from core.container.context import RuntimeContext, normalize_runtime_context
-from core.container.engines import EngineAdapter
-from core.container.inspect import InspectionError, normalize_container_inspection, parse_inspect_json
-from core.container.models import ContainerInspection, ContainerProjectConfig, ImageTransferPlan
-from core.logging_utils import get_logger, new_run_dir
-from core.project import ProjectProfile
-from core.ssh import SSHSession
-from core.work_context import WorkContext
+from env_builder.core.config import Inventory, load_inventory
+from env_builder.core.container.context import RuntimeContext, normalize_runtime_context
+from env_builder.core.container.engines import EngineAdapter
+from env_builder.core.container.inspect import InspectionError, normalize_container_inspection, parse_inspect_json
+from env_builder.core.container.models import ContainerInspection, ContainerProjectConfig, ImageTransferPlan
+from env_builder.core.logging_utils import get_logger, new_run_dir
+from env_builder.core.project import ProjectProfile
+from env_builder.core.ssh import SSHSession
+from env_builder.core.work_context import WorkContext
 
 
 class ContainerOperationError(RuntimeError):

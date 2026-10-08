@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from scripts.core.logging_utils import new_run_dir
-from scripts.core.work_context import WorkContext
+from env_builder.core.logging_utils import new_run_dir
+from env_builder.core.work_context import WorkContext
 
 
 def test_new_run_dir_namespaces_explicit_project(tmp_path: Path) -> None:

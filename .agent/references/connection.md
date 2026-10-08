@@ -205,7 +205,7 @@ sudo / su で昇格するのではなく、**必要なユーザーで直接ロ�
 
 ## 関連
 
-- 実装: `scripts/core/config.py`（inventory 読込）/ `scripts/core/ssh.py`（多段接続）/
-  `scripts/core/host_keys.py`（ホスト鍵の検証）
+- 実装: `env_builder/core/config.py`（inventory 読込）/ `env_builder/core/ssh.py`（多段接続）/
+  `env_builder/core/host_keys.py`（ホスト鍵の検証）
 - 疎通の手順: `.agent/skills/connectivity-check/SKILL.md`
 - 鉄則: `.agent/rules/operation-safety.md`（昇格せず必要ユーザーで直接ログイン）

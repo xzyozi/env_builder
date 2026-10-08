@@ -8,7 +8,7 @@ import shlex
 
 import pytest
 
-from scripts.sync_tree import _pack_command, _unpack_command
+from env_builder.cli.sync_tree import _pack_command, _unpack_command
 
 # シェルが特別扱いする文字を含む、悪意のあるパスの例。
 HOSTILE_PATHS = [

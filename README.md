@@ -34,24 +34,34 @@ env_builder/
 │   └── servers.json            # 実体（.gitignoreで除外・機密を含む）
 ├── desired_state/              # あるべき状態の定義（Git管理外）
 │   └── *.local.json             # 環境固有の実体（Git管理外）
-├── scripts/                    # 手元PCから叩く汎用スクリプト（Python）
-│   ├── core/                   # 共通ライブラリ（コミット対象）
+├── env_builder/                # 実装本体（Python パッケージ）。import は env_builder.* の1系統だけ
+│   ├── __main__.py             # python -m env_builder <command> の入口
+│   ├── cli/                    # コマンド（引数解析・表示・終了コードだけ。1コマンド1ファイル）
+│   │   ├── __init__.py         # コマンド名とモジュールの対応表、振り分け
+│   │   ├── _common.py          # 共通引数（--project）
+│   │   ├── init_config.py      # sample から実体ファイルを生成
+│   │   ├── check_connectivity.py  # 疎通確認（whoami/hostname）
+│   │   ├── probe_src.py        # src の現状収集（OSSバージョン等）
+│   │   ├── remote_exec.py      # 任意コマンドによる調査
+│   │   ├── container.py        # container解析・image計画・run候補
+│   │   ├── run_build.py        # dst でコマンド実行 → ログ回収
+│   │   ├── apply_packages.py   # packages 定義に沿って導入（root前提）
+│   │   ├── sync_files.py       # 設定ファイルの src→PC→dst 仲介
+│   │   └── sync_tree.py        # ディレクトリの src→PC→dst 仲介
+│   ├── core/                   # 共通ライブラリ（判断は持たない）
 │   │   ├── config.py           # 設定読込（コメント付きJSON対応）
-│   │   ├── container/          # containerモデル・inspect正規化・engine adapter
+│   │   ├── project.py          # プロジェクトプロファイルの解決
 │   │   ├── ssh.py              # 踏み台越しSSH実行・SFTP転送（昇格なし）
+│   │   ├── host_keys.py        # SSHホスト鍵の検証
+│   │   ├── shell.py            # リモートシェルへ渡す値のクォート・検証
 │   │   ├── work_context.py     # 作業ID・一時領域・cleanup・manifest
-│   │   └── logging_utils.py    # ログ出力
-│   ├── ops/                    # SSHを伴う上位処理
-│   │   └── container.py        # container inspect・image移送
-│   ├── init_config.py          # sample から実体ファイルを生成
-│   ├── check_connectivity.py   # 疎通確認（whoami/hostname）
-│   ├── probe_src.py            # src の現状収集（OSSバージョン等）
-│   ├── remote_exec.py          # 任意コマンドによる調査
-│   ├── container.py            # container解析・image計画・run候補CLI
-│   ├── run_build.py            # dst でコマンド実行 → ログ回収
-│   ├── apply_packages.py       # packages 定義に沿って導入（root前提）
-│   ├── sync_files.py           # 設定ファイルの src→PC→dst 仲介
-│   └── sync_tree.py            # ディレクトリの src→PC→dst 仲介
+│   │   ├── logging_utils.py    # ログ出力
+│   │   └── container/          # containerモデル・inspect正規化・engine adapter
+│   └── ops/                    # SSHを伴う上位処理
+│       └── container.py        # container inspect・image移送
+├── scripts/                    # 互換ラッパー（従来の scripts/<name>.py を使い続けるため）
+│   └── <command>.py            # env_builder.cli.<command>.main を呼ぶだけ。sys.path を操作するのはここだけ
+├── tests/                      # pytest（env_builder.* を import してテストする）
 ├── build_env/                  # 作業エリア（成果物・ログは .gitignore）
 │   ├── work/<work-id>/         # 実行中だけ存在する一時中継領域
 │   ├── logs/                   # 実行ログ・manifest（明示的に保持）
@@ -62,6 +72,32 @@ env_builder/
 ├── pyproject.toml              # uv で管理（依存: paramiko、dev: ruff/mypy/pytest）
 └── .gitignore
 ```
+
+## コマンドの実行方法
+
+コマンドは `env_builder` パッケージとして実装されています。リポジトリ直下で、次の形で実行します。
+
+```powershell
+uv run python -m env_builder <command> [args...]
+uv run python -m env_builder --help           # コマンド一覧
+uv run python -m env_builder remote_exec --target dst -- "hostname"
+```
+
+コマンド名は `remote_exec` でも `remote-exec` でも指定できます。従来の
+`uv run python scripts/<command>.py [args...]` も互換ラッパーとして残してあり、同じ動作をします
+（引数・既定値・終了コード・ログの出力先は変わりません）。以降の文書の実行例は、どちらの形でも
+読み替えられます。
+
+| コマンド                   | 内容                                       |
+| -------------------------- | ------------------------------------------ |
+| `init_config`              | sample から inventory の実体ファイルを生成 |
+| `check_connectivity`       | 踏み台越しの SSH 疎通確認                  |
+| `probe_src`                | src の現状収集                             |
+| `remote_exec`              | 任意サーバで単発コマンドを実行             |
+| `run_build`                | dst で build を実行しログを回収            |
+| `apply_packages`           | packages 定義に沿って導入                  |
+| `sync_files` / `sync_tree` | ファイル・ディレクトリの仲介転送           |
+| `container`                | コンテナ解析・image 移送計画・run 候補     |
 
 ## 前提
 
@@ -78,7 +114,7 @@ env_builder/
 uv sync
 
 # 2. 設定の実体ファイルを生成し、inventory/servers.json に実値を記入
-uv run python scripts/init_config.py
+uv run python -m env_builder init_config
 #    - host / port / user（必要に応じて *_root 定義も作成）
 #    - 認証方式（password なら password_env、key なら key_path）
 #    - proxy_jump（踏み台のキー名）
@@ -230,7 +266,7 @@ CI の失敗を事前に防げる。
 
 ## Git 方針
 
-- **共通部分（scripts/core と汎用スクリプト）のみコミット**する。
+- **共通部分（`env_builder/` パッケージ、`scripts/` の互換ラッパー、テスト）のみコミット**する。
 - `inventory/servers.sample.json` は機密なしのため追跡する。機密を含む実体（`servers.json`）、
   `desired_state/`、作業成果物（`build_env/` 等）は `.gitignore` で除外する。
 - パスワードは設定ファイルに書かず、環境変数（`password_env`）で渡す。
@@ -248,34 +284,33 @@ CI の失敗を事前に防げる。
   対象にしない。
 - パッケージ導入は uv の cooldown（グローバル `exclude-newer`）を前提とする。
 
-## scripts/core の使い方
+## env_builder/core の使い方
 
-`scripts/core` は、上位スクリプト（`remote_exec.py` / `check_connectivity.py`
-など）が共通で使うライブラリ。責務は **設定読込・SSH実行・ファイル転送・作業領域・ログ出力**
-に限定し、build ロジックや冪等判定といった判断は持たない。containerの純粋なモデル・
-inspect正規化・run候補生成もここに置き、SSHを伴うcontainer処理は`scripts/ops`へ分離する。
-実行判断（どのコマンドをどの順で流すか、出力をどう解釈するか）は呼び出し側の責務。
+`env_builder/core` は、コマンド（`env_builder/cli/`）が共通で使うライブラリ。責務は
+**設定読込・SSH実行・ファイル転送・作業領域・ログ出力** に限定し、build ロジックや冪等判定と
+いった判断は持たない。containerの純粋なモデル・inspect正規化・run候補生成もここに置き、
+SSHを伴うcontainer処理は`env_builder/ops`へ分離する。実行判断（どのコマンドをどの順で流すか、
+出力をどう解釈するか）は呼び出し側の責務。
 
-公開シンボル（`__init__.py` で re-export）:
+公開シンボル（`env_builder/core/__init__.py` で re-export）:
 
 - 設定: `load_inventory`, `Inventory`, `ServerSpec`
+- プロジェクト: `ProjectRegistry`, `ProjectProfile`
 - SSH: `SSHSession`, `SSHResult`
 - 作業領域: `WorkContext`
 - ログ: `get_logger`, `new_run_dir`
 
 ### 基本形
 
-上位スクリプトは `scripts/` を `sys.path` に足してから `core` を読む
-（既存スクリプトと同じ作法）。
+新しいコマンドやスクリプトは、`env_builder` を通常の Python パッケージとして import する。
+`sys.path` を操作する必要はない（`sys.path` を触るのは `scripts/` の互換ラッパーだけ）。
+リポジトリ直下から `python -m env_builder ...` で実行するか、`tests/` のように
+リポジトリルートが `sys.path` に入っている環境で import する。
 
 ```python
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/ を通す
-from core.config import load_inventory
-from core.logging_utils import get_logger
-from core.ssh import SSHSession
+from env_builder.core.config import load_inventory
+from env_builder.core.logging_utils import get_logger
+from env_builder.core.ssh import SSHSession
 
 logger = get_logger()
 inv = load_inventory()  # inventory/servers.json を読む
@@ -306,8 +341,13 @@ logger.info("exit=%d", res.exit_code)
 - `SSHSession(inventory, target)` を `with` で使う。`__enter__` で `proxy_jump`
   を近い踏み台から順に張り、各段のチャネルを次段へ引き渡して多段接続する
   （OpenSSH の ProxyJump 相当）。`__exit__` で接続と逆順にクローズ。
-- `ssh.run(command, timeout=600)` → `SSHResult(exit_code, stdout, stderr)`。
-  `res.ok` は `exit_code == 0` を表す。
+- `ssh.run(command, timeout=600)` → `SSHResult(exit_code, stdout, stderr, status)`。
+  `status` は `completed` / `timeout` / `interrupted`。`res.ok` は
+  `status == "completed"` かつ `exit_code == 0` のときだけ真になる。
+  stdout / stderr は同時に排出し、`timeout` はコマンド全体の上限秒（壁時計）。Ctrl+C は
+  `SSHInterrupted` として送出し、途中までの出力を `.result` に持つ。timeout / 中断でも
+  リモートのプロセスが停止するとは限らない（`.agent/references/scripts.md` を参照）。
+- ホスト鍵 … 未登録のホスト鍵は既定で拒否する（`env_builder/core/host_keys.py`）。
 - 昇格しない … sudo/su は使わない。root が必要なら root ログインのサーバ定義
   を使う。
 - ノイズ除去 … ログインシェル由来の `logout`（stdout）と
@@ -340,7 +380,10 @@ logger.info("exit=%d", res.exit_code)
 ### 注意点
 
 - `core` はライブラリであり単体では動かない。CLI として叩くのは
-  `remote_exec.py` などの上位スクリプト。
-- `core` を使う新スクリプトを追加する場合も、実行判断は呼び出し側が持つ。
-- パスは `config.py` の `REPO_ROOT`（`scripts/core/config.py` から2つ上）起点で
+  `env_builder/cli/` のコマンド（`python -m env_builder <command>`）。
+- 新しいコマンドは `env_builder/cli/<name>.py` に `main(argv=None) -> int` として追加し、
+  `env_builder/cli/__init__.py` の `COMMANDS` に登録する。`scripts/<name>.py` の互換ラッパーも
+  1本追加する（`tests/test_entrypoints.py` が、表とラッパーの対応を検査する）。
+  実行判断は呼び出し側が持つ。
+- パスは `config.py` の `REPO_ROOT`（`env_builder/core/config.py` から2つ上）起点で
   解決される。

@@ -10,8 +10,8 @@ from typing import List
 
 import pytest
 
-from scripts.core.ssh import SSHResult
-from scripts.core.work_context import WorkContext, _validate_remote_workspace
+from env_builder.core.ssh import SSHResult
+from env_builder.core.work_context import WorkContext, _validate_remote_workspace
 
 
 class FakeSSH:

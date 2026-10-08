@@ -12,7 +12,7 @@ from typing import Iterator
 import paramiko
 import pytest
 
-from scripts.core.host_keys import POLICY_ENV, HostKeyError, configure_host_keys
+from env_builder.core.host_keys import POLICY_ENV, HostKeyError, configure_host_keys
 
 
 class _AcceptAllServer(paramiko.ServerInterface):
