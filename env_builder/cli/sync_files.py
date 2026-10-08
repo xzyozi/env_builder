@@ -16,7 +16,6 @@ desired_state/files.json の対応表に従い、参照元(src)から設定フ�
 from __future__ import annotations
 
 import argparse
-import shlex
 from typing import Optional, Sequence
 
 from env_builder.cli._common import add_project_argument
@@ -26,6 +25,7 @@ from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectProfile, ProjectRegistry
 from env_builder.core.ssh import SSHSession
 from env_builder.core.work_context import WorkContext
+from env_builder.ops.transfer import download_files, upload_files
 
 
 def _sync_via_local(inv, logger, src_key: str, dst_key: str, profile: ProjectProfile) -> int:
@@ -43,34 +43,14 @@ def _sync_via_local(inv, logger, src_key: str, dst_key: str, profile: ProjectPro
     ) as work:
         logger.info("src(%s) からダウンロードします", src_key)
         with SSHSession(inv, src_key) as src_ssh:
-            for i, entry in enumerate(entries):
-                local = work.stage_dir / f"file_{i:03d}"
-                try:
-                    src_ssh.get_file(entry["src_path"], str(local))
-                except Exception as exc:
-                    logger.error("download失敗 src=%s: %s", entry["src_path"], exc)
-                    return 1
-                logger.info("  download: %s", entry["src_path"])
-                entry["_local"] = str(local)
+            local_paths = download_files(src_ssh, entries, work.stage_dir, logger)
+        if local_paths is None:
+            return 1
 
         logger.info("dst(%s) へアップロードします", dst_key)
         with SSHSession(inv, dst_key) as dst_ssh:
-            for entry in entries:
-                try:
-                    dst_ssh.put_file(entry["_local"], entry["dst_path"])
-                except Exception as exc:
-                    logger.error("upload失敗 dst=%s: %s", entry["dst_path"], exc)
-                    return 1
-                logger.info("  upload:   %s", entry["dst_path"])
-
-                mode = entry.get("mode")
-                if mode:
-                    result = dst_ssh.run(
-                        f"chmod {shlex.quote(str(mode))} {shlex.quote(entry['dst_path'])}",
-                    )
-                    if not result.ok:
-                        logger.error("chmod失敗 dst=%s exit=%d", entry["dst_path"], result.exit_code)
-                        return 1
+            if not upload_files(dst_ssh, entries, local_paths, logger):
+                return 1
 
         work.complete()
         logger.info("転送完了")

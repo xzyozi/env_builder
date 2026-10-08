@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import posixpath
-import shlex
 from typing import Optional, Sequence
 
 from env_builder.cli._common import add_project_argument
@@ -32,27 +31,7 @@ from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectRegistry
 from env_builder.core.ssh import SSHSession
 from env_builder.core.work_context import WorkContext
-
-
-def _pack_command(src_tar: str, parent: str, base: str) -> str:
-    """src 側で対象ディレクトリを tar.gz に固めるコマンドを組み立てる。
-
-    パスはすべて shlex.quote でリテラルとして扱う。base が `-` で始まる場合に
-    tar のオプションと解釈されないよう、`--` で位置引数の開始を明示する。
-    """
-    return (
-        f"tar czf {shlex.quote(src_tar)} -C {shlex.quote(parent)} -- {shlex.quote(base)} "
-        f"&& ls -l -- {shlex.quote(src_tar)}"
-    )
-
-
-def _unpack_command(dst_tar: str, dst_parent: str, destination: str) -> str:
-    """dst 側で tar.gz を展開するコマンドを組み立てる（全パスをクォートし、`--` を挟む）。"""
-    return (
-        f"mkdir -p -- {shlex.quote(dst_parent)} && "
-        f"tar xzf {shlex.quote(dst_tar)} -C {shlex.quote(dst_parent)} && "
-        f"ls -ld -- {shlex.quote(destination)}"
-    )
+from env_builder.ops.transfer import TREE_ARCHIVE_NAME, deploy_tree, fetch_tree, split_remote_dir
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -74,72 +53,49 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     inv = load_inventory(profile.inventory_path)
 
     remote_src = args.remote_src.rstrip("/")
-    parent = posixpath.dirname(remote_src)
-    base = posixpath.basename(remote_src)
+    parent, base = split_remote_dir(remote_src)
     destination = posixpath.join(args.remote_dst_parent, base)
-    overall_ok = True
 
     with WorkContext(
         "sync-tree",
         build_env_dir=profile.build_env_dir,
         project_id=profile.project_id,
     ) as work:
-        local_tar = work.stage_dir / "tree.tar.gz"
+        local_tar = work.stage_dir / TREE_ARCHIVE_NAME
 
         # 1. src の専用 /tmp 作業領域で tar.gz を作成して download
         logger.info("src(%s): tar 作成 %s", args.src, remote_src)
         with SSHSession(inv, args.src) as ssh:
-            src_workspace = None
-            try:
-                src_workspace = work.create_remote_workspace(ssh, args.src, timeout=args.timeout)
-                src_tar = posixpath.join(src_workspace, "tree.tar.gz")
-                command = _pack_command(src_tar, parent, base)
-                result = ssh.run(command, timeout=args.timeout)
-                if not result.ok:
-                    logger.error("tar 作成失敗 exit=%d: %s", result.exit_code, result.stderr.strip()[:300])
-                    overall_ok = False
-                else:
-                    logger.info("  %s", result.stdout.strip())
-                    logger.info("src -> 手元PC: download")
-                    ssh.get_file(src_tar, str(local_tar))
-            except Exception as exc:
-                logger.error("src側の転送に失敗しました: %s", exc)
-                overall_ok = False
-            finally:
-                if src_workspace and not work.cleanup_remote_workspace(ssh, args.src, src_workspace, args.timeout):
-                    logger.error("src側の一時作業領域を削除できませんでした: %s", src_workspace)
-                    overall_ok = False
+            fetched = fetch_tree(
+                ssh,
+                work,
+                target=args.src,
+                parent=parent,
+                base=base,
+                local_tar=local_tar,
+                timeout=args.timeout,
+                logger=logger,
+            )
 
-        if not overall_ok:
+        if not fetched:
             return 1
         logger.info("  取得: %s (%d bytes)", local_tar.name, local_tar.stat().st_size)
 
         # 2. dst の専用 /tmp 作業領域へ upload して永続配置先へ展開
         logger.info("dst(%s): upload & 展開先 %s", args.dst, args.remote_dst_parent)
         with SSHSession(inv, args.dst) as ssh:
-            dst_workspace = None
-            try:
-                dst_workspace = work.create_remote_workspace(ssh, args.dst, timeout=args.timeout)
-                dst_tar = posixpath.join(dst_workspace, "tree.tar.gz")
-                ssh.put_file(str(local_tar), dst_tar)
-                logger.info("  upload 完了: %s", dst_tar)
+            deployed = deploy_tree(
+                ssh,
+                work,
+                target=args.dst,
+                local_tar=local_tar,
+                dst_parent=args.remote_dst_parent,
+                destination=destination,
+                timeout=args.timeout,
+                logger=logger,
+            )
 
-                command = _unpack_command(dst_tar, args.remote_dst_parent, destination)
-                result = ssh.run(command, timeout=args.timeout)
-                if not result.ok:
-                    logger.error("展開失敗 exit=%d: %s", result.exit_code, result.stderr.strip()[:300])
-                    overall_ok = False
-                else:
-                    logger.info("  展開完了: %s", result.stdout.strip())
-            except Exception as exc:
-                logger.error("dst側の転送・展開に失敗しました: %s", exc)
-                overall_ok = False
-            finally:
-                if dst_workspace and not work.cleanup_remote_workspace(ssh, args.dst, dst_workspace, args.timeout):
-                    logger.error("dst側の一時作業領域を削除できませんでした: %s", dst_workspace)
-                    overall_ok = False
-
-        if not overall_ok:
+        if not deployed:
             return 1
 
         work.complete()
