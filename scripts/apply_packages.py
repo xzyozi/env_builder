@@ -12,13 +12,16 @@ Ansible の package タスク相当。既に導入済みならスキップし、
 from __future__ import annotations
 
 import argparse
+import shlex
 import sys
 from pathlib import Path
+from typing import List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import DESIRED_STATE_DIR, load_inventory, load_json  # noqa: E402
 from core.logging_utils import get_logger  # noqa: E402
 from core.project import ProjectRegistry  # noqa: E402
+from core.shell import validate_command_name, validate_package_name  # noqa: E402
 from core.ssh import SSHSession  # noqa: E402
 
 
@@ -30,8 +33,19 @@ def _load_packages(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
     return load_json(path)
 
 
+def _rpm_query_command(pkg: str) -> str:
+    """導入済みかを rpm で調べるコマンド。名前は検証・クォートし、`--` でオプション誤認を防ぐ。"""
+    return f"rpm -q -- {shlex.quote(validate_package_name(pkg))} >/dev/null 2>&1; echo $?"
+
+
+def _install_command(pm: str, packages: List[str]) -> str:
+    """未導入のパッケージをまとめて導入するコマンド。名前とパッケージマネージャを検証・クォートする。"""
+    names = " ".join(shlex.quote(validate_package_name(pkg)) for pkg in packages)
+    return f"{shlex.quote(validate_command_name(pm))} install -y {names}"
+
+
 def _is_installed(ssh: SSHSession, pkg: str) -> bool:
-    res = ssh.run(f"rpm -q {pkg} >/dev/null 2>&1; echo $?")
+    res = ssh.run(_rpm_query_command(pkg))
     return res.stdout.strip().endswith("0")
 
 
@@ -47,6 +61,16 @@ def main() -> int:
     cfg = _load_packages(profile.desired_state_dir)
     pm = cfg.get("package_manager", "dnf")
     packages = [p["name"] for p in cfg.get("packages", []) if p.get("state", "present") == "present"]
+
+    # リモートへ何も送る前に、パッケージ名とパッケージマネージャを検証する。
+    try:
+        validate_command_name(pm)
+        for name in packages:
+            validate_package_name(name)
+    except ValueError as exc:
+        logger.error("packages.json の内容が不正です: %s", exc)
+        return 1
+
     inv = load_inventory(profile.inventory_path)
 
     logger.info("%s の状態を確認します（package_manager=%s）", args.target, pm)
@@ -63,7 +87,7 @@ def main() -> int:
             return 0
 
         # sudo は使わない方針。dst は root でログインしている前提。
-        install_cmd = f"{pm} install -y " + " ".join(missing)
+        install_cmd = _install_command(pm, missing)
         logger.info("インストールを実行します: %s", install_cmd)
         res = ssh.run(install_cmd, timeout=1800)
         if res.ok:

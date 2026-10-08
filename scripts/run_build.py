@@ -14,6 +14,7 @@ desired_state/build_targets.local.json の定義に従い、リモートの作�
 from __future__ import annotations
 
 import argparse
+import shlex
 import sys
 from pathlib import Path
 
@@ -21,7 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import DESIRED_STATE_DIR, load_inventory, load_json  # noqa: E402
 from core.logging_utils import get_logger, new_run_dir  # noqa: E402
 from core.project import ProjectRegistry  # noqa: E402
-from core.ssh import SSHSession  # noqa: E402
+from core.shell import quote_remote_path, validate_env_name  # noqa: E402
+from core.ssh import EXIT_CODE_INTERRUPTED, SSHInterrupted, SSHSession  # noqa: E402
 
 
 def _load_targets(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
@@ -67,6 +69,23 @@ def _has_build_error(stderr: str) -> bool:
     return any(marker in stderr for marker in _BUILD_ERROR_MARKERS)
 
 
+def _env_prefix(env: dict) -> str:
+    """環境変数の export 前置きを組み立てる。
+
+    変数名は検証し、値はリテラルとしてクォートする（シェル展開はしない）。
+    """
+    return "".join(f"export {validate_env_name(key)}={shlex.quote(str(value))}; " for key, value in env.items())
+
+
+def _step_command(workdir: str, env_prefix: str, cmd: str) -> str:
+    """1 ステップ分のリモートコマンドを組み立てる。
+
+    workdir はクォートする（先頭の `~` はホームディレクトリ）。cmd は desired_state が定義する
+    ビルド手順そのものなので、シェルコマンドとして渡し、クォートしない。
+    """
+    return f"cd -- {quote_remote_path(workdir)} && {env_prefix}{cmd}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default=None, help="build_targets の name。未指定なら先頭")
@@ -101,20 +120,53 @@ def main() -> int:
     commands = target.get("commands", [])
     env = target.get("env", {})
 
-    # 環境変数の export 前置き
-    env_prefix = "".join(f"export {k}={v}; " for k, v in env.items())
+    # リモートへ何も送る前に、環境変数名と作業ディレクトリを検証する。
+    try:
+        env_prefix = _env_prefix(env)
+        quote_remote_path(workdir)
+    except ValueError as exc:
+        logger.error("build_targets の内容が不正です: %s", exc)
+        return 1
 
     logger.info("build 開始: target=%s server=%s workdir=%s", target.get("name"), server, workdir)
 
     overall_ok = True
+    interrupted = False
     with SSHSession(inv, server) as ssh:
         for i, cmd in enumerate(commands, 1):
-            full = f"cd {workdir} && {env_prefix}{cmd}"
+            full = _step_command(workdir, env_prefix, cmd)
             logger.info("[%d/%d] %s", i, len(commands), cmd)
-            res = ssh.run(full, timeout=3600)
 
-            (run_dir / f"step{i:02d}.stdout.log").write_text(res.stdout, encoding="utf-8")
-            (run_dir / f"step{i:02d}.stderr.log").write_text(res.stderr, encoding="utf-8")
+            # 実行中の出力を逐次ファイルへ追記する。タイムアウトや Ctrl+C で途中終了しても、
+            # それまでのログが失われず、無出力のハングと進捗中を後から区別できる。
+            stdout_log = run_dir / f"step{i:02d}.stdout.log"
+            stderr_log = run_dir / f"step{i:02d}.stderr.log"
+            stdout_log.write_text("", encoding="utf-8")
+            stderr_log.write_text("", encoding="utf-8")
+            sinks = {"stdout": stdout_log, "stderr": stderr_log}
+
+            def append_output(stream: str, text: str, _sinks=sinks) -> None:
+                with _sinks[stream].open("a", encoding="utf-8", newline="") as handle:
+                    handle.write(text)
+
+            try:
+                res = ssh.run(full, timeout=3600, on_output=append_output)
+            except SSHInterrupted as exc:
+                res = exc.result
+                interrupted = True
+
+            # ノイズ除去後の最終出力で上書きする（逐次ログは生に近い出力のため）。
+            stdout_log.write_text(res.stdout, encoding="utf-8")
+            stderr_log.write_text(res.stderr, encoding="utf-8")
+
+            if interrupted:
+                overall_ok = False
+                logger.error("    -> 中断されました（Ctrl+C）。リモートのプロセスは停止していない可能性があります。")
+                break
+            if res.timed_out:
+                overall_ok = False
+                logger.error("    -> タイムアウト（3600秒）。リモートのプロセスは停止していない可能性があります。")
+                break
 
             # このビルドは typechk.sh 生成のサブシェル経由のため、コンパイルが
             # 失敗しても最上位の終了コードが 0 になることがある。終了コードだけ
@@ -135,6 +187,9 @@ def main() -> int:
     if overall_ok:
         logger.info("build 成功")
         return 0
+    if interrupted:
+        logger.error("build を中断しました。それまでのログは上記に保存されています。")
+        return EXIT_CODE_INTERRUPTED
     logger.error("build 失敗。上記ログを参照して環境を整えてください。")
     return 1
 

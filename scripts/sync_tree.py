@@ -35,6 +35,27 @@ from core.ssh import SSHSession  # noqa: E402
 from core.work_context import WorkContext  # noqa: E402
 
 
+def _pack_command(src_tar: str, parent: str, base: str) -> str:
+    """src 側で対象ディレクトリを tar.gz に固めるコマンドを組み立てる。
+
+    パスはすべて shlex.quote でリテラルとして扱う。base が `-` で始まる場合に
+    tar のオプションと解釈されないよう、`--` で位置引数の開始を明示する。
+    """
+    return (
+        f"tar czf {shlex.quote(src_tar)} -C {shlex.quote(parent)} -- {shlex.quote(base)} "
+        f"&& ls -l -- {shlex.quote(src_tar)}"
+    )
+
+
+def _unpack_command(dst_tar: str, dst_parent: str, destination: str) -> str:
+    """dst 側で tar.gz を展開するコマンドを組み立てる（全パスをクォートし、`--` を挟む）。"""
+    return (
+        f"mkdir -p -- {shlex.quote(dst_parent)} && "
+        f"tar xzf {shlex.quote(dst_tar)} -C {shlex.quote(dst_parent)} && "
+        f"ls -ld -- {shlex.quote(destination)}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--src", default="src", help="取得元（inventory のキー）")
@@ -73,10 +94,7 @@ def main() -> int:
             try:
                 src_workspace = work.create_remote_workspace(ssh, args.src, timeout=args.timeout)
                 src_tar = posixpath.join(src_workspace, "tree.tar.gz")
-                command = (
-                    f"tar czf {shlex.quote(src_tar)} -C {shlex.quote(parent)} {shlex.quote(base)} "
-                    f"&& ls -l {shlex.quote(src_tar)}"
-                )
+                command = _pack_command(src_tar, parent, base)
                 result = ssh.run(command, timeout=args.timeout)
                 if not result.ok:
                     logger.error("tar 作成失敗 exit=%d: %s", result.exit_code, result.stderr.strip()[:300])
@@ -107,11 +125,7 @@ def main() -> int:
                 ssh.put_file(str(local_tar), dst_tar)
                 logger.info("  upload 完了: %s", dst_tar)
 
-                command = (
-                    f"mkdir -p {shlex.quote(args.remote_dst_parent)} && "
-                    f"tar xzf {shlex.quote(dst_tar)} -C {shlex.quote(args.remote_dst_parent)} && "
-                    f"ls -ld {shlex.quote(destination)}"
-                )
+                command = _unpack_command(dst_tar, args.remote_dst_parent, destination)
                 result = ssh.run(command, timeout=args.timeout)
                 if not result.ok:
                     logger.error("展開失敗 exit=%d: %s", result.exit_code, result.stderr.strip()[:300])

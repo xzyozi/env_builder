@@ -160,14 +160,52 @@ sudo / su で昇格するのではなく、**必要なユーザーで直接ロ�
    $env:ENVB_DST_ROOT_PASSWORD = "..."
    ```
 
-4. 疎通を確認する。
+4. 初回のみ、接続先のホスト鍵を登録する（次節）。
+5. 疎通を確認する。
 
    ```powershell
    uv run python scripts/check_connectivity.py
    ```
 
+## ホスト鍵の検証（中間者攻撃の対策）
+
+接続先が本物であることを確認するため、**未登録のホスト鍵は既定で拒否**する。踏み台を含む
+経路上のすべてのホストが検証対象で、パスワードや鍵による認証は、ホスト鍵の検証が済んだ
+後でしか行われない。
+
+- 参照する known_hosts: ユーザーの `~/.ssh/known_hosts`（読み取りのみ）と、env_builder
+  専用の `~/.ssh/env_builder_known_hosts`。専用ファイルの場所は環境変数
+  `ENVB_KNOWN_HOSTS` で変更できる。
+- 未登録のホストへ接続すると、ホスト名とフィンガープリント（`SHA256:...`）を表示して
+  接続を拒否する。
+
+### 初回登録の手順
+
+1. 接続先のフィンガープリントを、**ネットワーク経由とは別の信頼できる経路**（サーバ管理者、
+   サーバのコンソール、構成管理の記録など）で確認する。
+2. 初回の接続だけ、環境変数で登録を許可する。未登録のホストだけが専用ファイルへ登録される。
+
+   ```powershell
+   $env:ENVB_HOST_KEY_POLICY = "accept-new"
+   uv run python scripts/check_connectivity.py   # 表示された SHA256 が 1 の値と一致するか確認する
+   Remove-Item Env:ENVB_HOST_KEY_POLICY            # 登録が済んだら必ず解除する
+   ```
+
+3. 以降は既定（`strict`）のまま接続できる。
+
+### 注意
+
+- 登録済みのホストで**鍵が変わっている場合は、`accept-new` でも接続を拒否**する
+  （`BadHostKeyException`）。サーバの再構築など正当な理由がある場合だけ、専用ファイルの
+  該当行を確認のうえ削除して、再登録する。理由が不明な場合はなりすましの可能性があるため、
+  接続を続けない。
+- `accept-new` は初回登録のための一時的な設定で、常用しない。確認せずに使うと、初回の
+  接続が偽のサーバに向いていても受け入れてしまう。
+- 非標準ポートのホストは `[host]:port` の形式で登録される。
+
 ## 関連
 
-- 実装: `scripts/core/config.py`（inventory 読込）/ `scripts/core/ssh.py`（多段接続）
+- 実装: `scripts/core/config.py`（inventory 読込）/ `scripts/core/ssh.py`（多段接続）/
+  `scripts/core/host_keys.py`（ホスト鍵の検証）
 - 疎通の手順: `.agent/skills/connectivity-check/SKILL.md`
 - 鉄則: `.agent/rules/operation-safety.md`（昇格せず必要ユーザーで直接ログイン）

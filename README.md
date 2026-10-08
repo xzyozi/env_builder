@@ -89,6 +89,10 @@ $env:ENVB_SRC_PASSWORD     = "..."
 $env:ENVB_DST_PASSWORD     = "..."
 ```
 
+接続先のホスト鍵は、初回のみ登録が必要です（未登録の鍵は拒否されます）。フィンガープリントを
+別の経路で確認したうえで、初回だけ `ENVB_HOST_KEY_POLICY=accept-new` を設定して接続し、
+登録後は解除してください。詳細は `.agent/references/connection.md` を参照してください。
+
 ## 複数プロジェクトの管理
 
 複数の配下プロジェクトを扱う場合は、プロジェクトごとにinventory、desired state、ログを分離し、
@@ -234,6 +238,9 @@ CI の失敗を事前に防げる。
 ## セキュリティ
 
 - 認証情報はコミットしない・コマンドラインに直書きしない。
+- SSH のホスト鍵は検証し、未登録の鍵は既定で拒否する。初回のみ環境変数
+  `ENVB_HOST_KEY_POLICY=accept-new` で登録を許可し、登録後は解除する。手順と注意は
+  `.agent/references/connection.md` の「ホスト鍵の検証」を参照する。
 - `check_connectivity.py` / `probe_src.py` は読み取り専用コマンドのみ実行する。
 - `/home/<user>` 直下を作業領域にしない。リモート一時物は専用 `/tmp/env_builder-<work-id>-XXXXXX/`
   配下に置き、作業終了時にcleanupする。`/tmp` のOS側自動削除は異常終了時のfallbackとする。
