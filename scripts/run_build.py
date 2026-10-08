@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import DESIRED_STATE_DIR, load_inventory, load_json  # noqa: E402
 from core.logging_utils import get_logger, new_run_dir  # noqa: E402
 from core.project import ProjectRegistry  # noqa: E402
-from core.ssh import SSHSession  # noqa: E402
+from core.ssh import EXIT_CODE_INTERRUPTED, SSHInterrupted, SSHSession  # noqa: E402
 
 
 def _load_targets(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
@@ -107,14 +107,42 @@ def main() -> int:
     logger.info("build 開始: target=%s server=%s workdir=%s", target.get("name"), server, workdir)
 
     overall_ok = True
+    interrupted = False
     with SSHSession(inv, server) as ssh:
         for i, cmd in enumerate(commands, 1):
             full = f"cd {workdir} && {env_prefix}{cmd}"
             logger.info("[%d/%d] %s", i, len(commands), cmd)
-            res = ssh.run(full, timeout=3600)
 
-            (run_dir / f"step{i:02d}.stdout.log").write_text(res.stdout, encoding="utf-8")
-            (run_dir / f"step{i:02d}.stderr.log").write_text(res.stderr, encoding="utf-8")
+            # 実行中の出力を逐次ファイルへ追記する。タイムアウトや Ctrl+C で途中終了しても、
+            # それまでのログが失われず、無出力のハングと進捗中を後から区別できる。
+            stdout_log = run_dir / f"step{i:02d}.stdout.log"
+            stderr_log = run_dir / f"step{i:02d}.stderr.log"
+            stdout_log.write_text("", encoding="utf-8")
+            stderr_log.write_text("", encoding="utf-8")
+            sinks = {"stdout": stdout_log, "stderr": stderr_log}
+
+            def append_output(stream: str, text: str, _sinks=sinks) -> None:
+                with _sinks[stream].open("a", encoding="utf-8", newline="") as handle:
+                    handle.write(text)
+
+            try:
+                res = ssh.run(full, timeout=3600, on_output=append_output)
+            except SSHInterrupted as exc:
+                res = exc.result
+                interrupted = True
+
+            # ノイズ除去後の最終出力で上書きする（逐次ログは生に近い出力のため）。
+            stdout_log.write_text(res.stdout, encoding="utf-8")
+            stderr_log.write_text(res.stderr, encoding="utf-8")
+
+            if interrupted:
+                overall_ok = False
+                logger.error("    -> 中断されました（Ctrl+C）。リモートのプロセスは停止していない可能性があります。")
+                break
+            if res.timed_out:
+                overall_ok = False
+                logger.error("    -> タイムアウト（3600秒）。リモートのプロセスは停止していない可能性があります。")
+                break
 
             # このビルドは typechk.sh 生成のサブシェル経由のため、コンパイルが
             # 失敗しても最上位の終了コードが 0 になることがある。終了コードだけ
@@ -135,6 +163,9 @@ def main() -> int:
     if overall_ok:
         logger.info("build 成功")
         return 0
+    if interrupted:
+        logger.error("build を中断しました。それまでのログは上記に保存されています。")
+        return EXIT_CODE_INTERRUPTED
     logger.error("build 失敗。上記ログを参照して環境を整えてください。")
     return 1
 

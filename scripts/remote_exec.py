@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.config import load_inventory  # noqa: E402
 from core.logging_utils import get_logger, new_run_dir  # noqa: E402
 from core.project import ProjectRegistry  # noqa: E402
-from core.ssh import SSHSession  # noqa: E402
+from core.ssh import SSHInterrupted, SSHSession  # noqa: E402
 
 
 def main() -> int:
@@ -42,8 +42,14 @@ def main() -> int:
     inv = load_inventory(profile.inventory_path)
 
     logger.info("[%s] 実行: %s", args.target, command)
+    interrupted = False
     with SSHSession(inv, args.target) as ssh:
-        res = ssh.run(command, timeout=args.timeout)
+        try:
+            res = ssh.run(command, timeout=args.timeout)
+        except SSHInterrupted as exc:
+            # Ctrl+C。途中までの出力は捨てずに表示・保存する。
+            res = exc.result
+            interrupted = True
 
     # 標準出力・標準エラーを表示
     if res.stdout:
@@ -52,7 +58,14 @@ def main() -> int:
     if res.stderr:
         print("----- stderr -----")
         print(res.stderr)
-    logger.info("exit=%d", res.exit_code)
+    if interrupted:
+        logger.error("中断されました（Ctrl+C）。リモートのプロセスは停止していない可能性があります。")
+    elif res.timed_out:
+        logger.error(
+            "タイムアウト（%d秒）。それまでの出力を表示しました。リモートのプロセスは停止していない可能性があります。",
+            args.timeout,
+        )
+    logger.info("exit=%d status=%s", res.exit_code, res.status)
 
     if args.save:
         run_dir = new_run_dir(
