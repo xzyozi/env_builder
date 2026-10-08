@@ -15,38 +15,15 @@ from __future__ import annotations
 
 import argparse
 import shlex
-from pathlib import Path
 from typing import Optional, Sequence
 
 from env_builder.cli._common import add_project_argument
-from env_builder.core.config import DESIRED_STATE_DIR, load_inventory, load_json
+from env_builder.core.config import load_inventory
+from env_builder.core.desired_state import load_build_targets
 from env_builder.core.logging_utils import get_logger, new_run_dir
 from env_builder.core.project import ProjectRegistry
 from env_builder.core.shell import quote_remote_path, validate_env_name
 from env_builder.core.ssh import EXIT_CODE_INTERRUPTED, SSHInterrupted, SSHSession
-
-
-def _load_targets(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
-    """build ターゲット定義を読み込む。
-
-    環境固有値（サーバ名・作業ディレクトリ・VERSION_MNG 等）はリポジトリに
-    コミットしない方針のため、実体は Git 管理外の *.local.json に置く。
-    読み込み順は次の通り:
-      1. build_targets.local.json（実体・.gitignore 対象）を最優先
-      2. 後方互換として build_targets.json があれば読む
-    どちらも無ければ、local ファイルの作成を促すエラーにする。
-    """
-    local_path = desired_state_dir / "build_targets.local.json"
-    legacy_path = desired_state_dir / "build_targets.json"
-    if local_path.exists():
-        return load_json(local_path)
-    if legacy_path.exists():
-        return load_json(legacy_path)
-    raise FileNotFoundError(
-        f"{local_path.name} がありません。環境固有値を含む build 定義は "
-        f"{local_path.name}（Git 管理外）に作成してください。"
-    )
-
 
 # コンパイル/リンクの失敗を示す痕跡。終了コードが 0 でも、これらが stderr に
 # あれば失敗とみなす（typechk.sh 経由でエラーが最上位に伝播しないため）。
@@ -93,7 +70,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     profile = ProjectRegistry().resolve(args.project)
-    cfg = _load_targets(profile.desired_state_dir)
+    cfg = load_build_targets(profile.desired_state_dir)
     targets = cfg.get("targets", [])
     if not targets:
         print("build_targets.json に targets がありません。")

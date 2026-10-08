@@ -17,28 +17,20 @@ from __future__ import annotations
 
 import argparse
 import shlex
-from pathlib import Path
 from typing import Optional, Sequence
 
 from env_builder.cli._common import add_project_argument
-from env_builder.core.config import DESIRED_STATE_DIR, load_inventory, load_json
+from env_builder.core.config import load_inventory
+from env_builder.core.desired_state import load_files
 from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectProfile, ProjectRegistry
 from env_builder.core.ssh import SSHSession
 from env_builder.core.work_context import WorkContext
 
 
-def _load_files(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
-    path = desired_state_dir / "files.json"
-    if not path.exists():
-        sample = desired_state_dir / "files.sample.json"
-        raise FileNotFoundError(f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。")
-    return load_json(path)
-
-
 def _sync_via_local(inv, logger, src_key: str, dst_key: str, profile: ProjectProfile) -> int:
     """files.json に従い src からダウンロードして dst へアップロードする。"""
-    cfg = _load_files(profile.desired_state_dir)
+    cfg = load_files(profile.desired_state_dir)
     entries = cfg.get("files", [])
     if not entries:
         logger.info("files.json に対象がありません。")

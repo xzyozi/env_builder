@@ -13,23 +13,15 @@ from __future__ import annotations
 
 import argparse
 import shlex
-from pathlib import Path
 from typing import List, Optional, Sequence
 
 from env_builder.cli._common import add_project_argument
-from env_builder.core.config import DESIRED_STATE_DIR, load_inventory, load_json
+from env_builder.core.config import load_inventory
+from env_builder.core.desired_state import load_packages
 from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectRegistry
 from env_builder.core.shell import validate_command_name, validate_package_name
 from env_builder.core.ssh import SSHSession
-
-
-def _load_packages(desired_state_dir: Path = DESIRED_STATE_DIR) -> dict:
-    path = desired_state_dir / "packages.json"
-    if not path.exists():
-        sample = desired_state_dir / "packages.sample.json"
-        raise FileNotFoundError(f"{path.name} がありません。{sample.name} を複製して実値を埋めてください。")
-    return load_json(path)
 
 
 def _rpm_query_command(pkg: str) -> str:
@@ -57,7 +49,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     profile = ProjectRegistry().resolve(args.project)
     logger = get_logger(project_id=profile.project_id)
-    cfg = _load_packages(profile.desired_state_dir)
+    cfg = load_packages(profile.desired_state_dir)
     pm = cfg.get("package_manager", "dnf")
     packages = [p["name"] for p in cfg.get("packages", []) if p.get("state", "present") == "present"]
 
