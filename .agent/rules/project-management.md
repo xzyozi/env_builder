@@ -79,3 +79,42 @@ agentは未選択のprojectディレクトリを横断して規約を読み込�
 
 同じtarget名やworkdir名を複数projectで使っても、projectごとのbuild_env配下にログ・作業領域を
 置く。ログとmanifestにはproject IDを残し、別projectの作業領域をcleanup対象にしない。
+
+## 検証手順（プロジェクト切替とagent規約読込）
+
+実サーバへ接続せずに再現できる手順。いずれも読み取りまたは `tmp_path` 内の操作だけで完結する。
+
+### 1. 自動テスト
+
+```powershell
+uv run --frozen --with paramiko --with pytest python -m pytest -q -p no:cacheprovider tests/test_project.py tests/test_project_context.py tests/test_project_isolation.py
+```
+
+確認される内容は次のとおり。
+
+- legacy経路（`--project`省略）が従来のリポジトリ直下パスへ解決される（`test_project.py`）
+- 不正・未登録のproject IDが拒否される（`test_project.py`）
+- ログ・作業領域・manifestがproject IDで名前空間化される（`test_project_context.py`）
+- 2プロジェクトで同じlabelを使ってもパスが重ならない（`test_project_isolation.py`）
+- `ProjectProfile`とmanifestが認証情報を保持しない（`test_project_isolation.py`）
+
+### 2. 手動確認（接続なし）
+
+```powershell
+$env:ENVB_PROJECT_ROOT = "$env:TEMP\envb-verify"
+uv run python scripts/init_config.py --project verify-a
+uv run python scripts/init_config.py --project verify-b
+```
+
+- `verify-a` と `verify-b` の直下に、それぞれ別の `inventory/servers.json` が作られること（`desired_state/` は案件側で用意する）
+- `--project ../x` や `--project ""` を指定すると、ディレクトリを作らずエラー終了すること
+- 後始末として `$env:TEMP\envb-verify` を削除し、`ENVB_PROJECT_ROOT` を解除すること
+
+### 3. agent規約の読込確認
+
+agent規約の読込は、Pythonでは自動実行せず、agentが明示的に行う。次を確認する。
+
+1. 依頼文または `--project` でproject IDが確定している
+2. 対象projectの `AGENTS.md` と `.agent/` が存在する場合だけ読み込む（無ければ読み込まず、その旨を報告する）
+3. 未選択のprojectディレクトリを読み込まない
+4. ルート規約と矛盾する場合は、上記「agent規約の適用」の優先順位に従いルート規約を優先する
