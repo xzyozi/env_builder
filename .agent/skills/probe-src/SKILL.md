@@ -9,6 +9,9 @@ allowed-tools: [Bash, Read, Grep]
 `scripts/probe_src.py` をラップし、src の現状を収集して `build_env/src_snapshot/<target>/`
 に保存する。「src では何が入っているか」を dst で再現するための参照材料を作る。
 
+標準の実行形式は `uv run python -m env_builder probe_src ...`。
+`uv run python scripts/probe_src.py ...` は同じコマンドを呼ぶ互換ラッパー。
+
 ## 前提
 
 - src は**参照専用・読み取り専用**。root で入らない（operation-safety 準拠）。

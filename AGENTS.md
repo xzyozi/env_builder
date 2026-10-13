@@ -24,10 +24,12 @@
 ## ワークフロー（スキル）
 
 - コンテキスト読込: `.agent/skills/context/SKILL.md`
+- プロジェクト初期設定: `.agent/skills/project-initialization/SKILL.md`
 - 疎通確認: `.agent/skills/connectivity-check/SKILL.md`
 - src 現状収集: `.agent/skills/probe-src/SKILL.md`
 - リモート調査: `.agent/skills/remote-investigation/SKILL.md`
 - ファイル/ツリー配置: `.agent/skills/sync-artifacts/SKILL.md`
+- コンテナ解析・image 移送: `.agent/skills/container/SKILL.md`
 - 環境整備ループ（中核）: `.agent/skills/env-provisioning/SKILL.md`
 
 ## 絶対に守ること
