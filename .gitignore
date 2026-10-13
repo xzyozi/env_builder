@@ -251,23 +251,14 @@ desired_state/
 secrets/
 .secrets/
 
-# 作業エリア（成果物・ログ・取得物・sample/TTL等の機密）はコミットしない。
-# build_env 配下は丸ごと除外し、ディレクトリ保持用の .gitkeep だけ救済する。
-build_env/*
-!build_env/logs/
-!build_env/src_snapshot/
-!build_env/artifacts/
-build_env/logs/*
-build_env/src_snapshot/*
-build_env/artifacts/*
-!build_env/**/.gitkeep
-# プロジェクト固有の設定実体・成果物（repo内fallbackを使う場合も機密を追跡しない）
-projects/*/inventory/servers.json
-projects/*/inventory/*.local.json
-projects/*/desired_state/
-projects/*/build_env/
-projects/*/secrets/
-projects/*/.env*
+# 作業エリア（成果物・ログ・取得物・set_env.bat 等の機密）はコミットしない。
+# build_env はプロジェクト直下（projects/<id>/build_env/）に置く。リポジトリ直下の
+# build_env（legacy）も含め、場所を問わず丸ごと除外する。
+build_env/
+
+# 案件（プロジェクト）固有のもの（接続定義・desired_state・ログ・手順書・メモ等）は
+# リポジトリ内の projects/ 配下に置いても一切コミットしない。
+projects/*
 
 # tmp
 tmp/*
