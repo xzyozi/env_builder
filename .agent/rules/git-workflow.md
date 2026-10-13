@@ -24,7 +24,8 @@
 - 接続定義の実体: `inventory/servers.json`、`inventory/*.local.json`
 - あるべき状態の実体: `desired_state/` 配下
 - テンプレート: `*.sample.json`
-- 作業エリア: `build_env/*`（`.gitkeep` を除く。`set_env.bat` は機密を含むため特に注意）
+- 作業エリア: `build_env/`（プロジェクト直下の `projects/<id>/build_env/` に置く。`.gitkeep` も含めて追跡しない。`set_env.bat` は機密を含むため特に注意）
+- 案件固有のもの: `projects/` 配下すべて（接続定義、desired_state、ログ、手順書、メモ）
 - 秘密鍵・認証情報: `*.pem` / `*.key` / `*.ppk` / `secrets/`
 - Kiro のローカル作業ログ: `.kiro/`
 
