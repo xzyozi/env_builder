@@ -20,8 +20,8 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
 - コーディング規約: `.agent/rules/coding-style.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 各種ワークフロー: `.agent/skills/` 配下の各 `SKILL.md`
-  （context / connectivity-check / probe-src / remote-investigation /
-  sync-artifacts / env-provisioning）
+  （context / project-initialization / connectivity-check / probe-src /
+  remote-investigation / sync-artifacts / container / env-provisioning）
 - 初期設定Agent: `.kiro/agents/project-initializer.md`
 - 初期設定手順: `.agent/skills/project-initialization/SKILL.md`
 
