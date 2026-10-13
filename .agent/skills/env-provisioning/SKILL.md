@@ -8,8 +8,12 @@ allowed-tools: [Bash, Read, Grep, Glob]
 
 「src を参考に dst の環境を整える」作業全般の汎用手順。**ビルドに限らず**、コンテナ環境の
 構築など「dst をあるべき状態に近づける」作業はこのループに乗せる。個別のスクリプト操作は
-専用スキル（connectivity-check / probe-src / remote-investigation / sync-artifacts）に委ね、
-ここでは**全体の順序と判断のループ**を示す。
+専用スキル（connectivity-check / probe-src / remote-investigation / sync-artifacts /
+container）に委ね、ここでは**全体の順序と判断のループ**を示す。
+
+各スクリプトの標準の実行形式は `uv run python -m env_builder <command> ...` で、
+`uv run python scripts/<command>.py ...` は同じコマンドを呼ぶ互換ラッパー（詳細は
+`.agent/references/scripts.md`）。以下の例は互換ラッパー表記で記す。
 
 ## 進め方（探索 → 計画 → 実装）
 
@@ -51,8 +55,10 @@ allowed-tools: [Bash, Read, Grep, Glob]
 
   `build_targets.local.json` の定義に従い dst でビルドし、`build_env/logs/build_<name>_<ts>/`
   に stdout/stderr が保存される。
-- **コンテナ構築など他作業の場合**: 対象に応じたコマンドを `remote-investigation`
-  （remote_exec.py）や専用スクリプトで実行する。状態を変える操作は operation-safety に従う。
+- **コンテナの解析・image 移送の場合**: `container`（container.py）で inspect 解析と
+  移送計画を出し、明示承認後に image を移送する。
+- **その他の作業の場合**: 対象に応じたコマンドを `remote-investigation`（remote_exec.py）
+  や専用スクリプトで実行する。状態を変える操作は operation-safety に従う。
 
 ## Step 4: 失敗の解釈（重要）
 
