@@ -29,6 +29,12 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
 このAgentは壁打ち・計画・明示承認・既存CLIへの委譲だけを行い、疎通確認や環境変更は
 ユーザーの別承認後に対応する。
 
+以下の3ファイルは作業の前提となるため、このsteeringに本文を取り込む。
+
+#[[file:.agent/instructions.md]]
+
+#[[file:.agent/rules/operation-safety.md]]
+
 #[[file:.agent/rules/project-management.md]]
 
 ルートの `AGENTS.md` も同じ `.agent/` を指すエントリポイントである。

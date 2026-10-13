@@ -75,13 +75,15 @@ project IDの検証、設定ルート外へのパス逸脱防止、profileの解
 
 ユーザーが「この内容で作成する」と明示した後だけ、Python実行環境を確認して既存CLIを実行する。Python関連の最初の実行前に `uv --version` を一度確認し、プロジェクトがuvを採用している場合は `uv run` を使う。
 
-新規の明示projectでは、原則として次を使う。
+uvが利用可能でプロジェクトがuvを採用している場合は、以下の `uv run` を使う。uvが未導入・利用不能な場合は、同じセッションで再試行せず、READMEや既存の仮想環境から定義済みの実行手順を選ぶ。代替手順が不明な場合は、uvのインストールや設定変更をせず、実行方法をユーザーに確認する。
+
+新規の明示projectでは、原則として次を使う（uv採用時）。
 
 ```powershell
 uv run python scripts/init_config.py --project <project-id>
 ```
 
-legacy経路では次を使う。
+legacy経路では次を使う（uv採用時）。
 
 ```powershell
 uv run python scripts/init_config.py

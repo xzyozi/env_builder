@@ -1,8 +1,8 @@
 ---
 name: project-initializer
 description: プロジェクト初期設定を対話で整理し、明示承認後に安全なローカル初期化だけを実行するAgent。新規projectの作成、legacy構成からの切替、inventoryやdesired_stateの準備方針を壁打ちしたいときに使用する。
-tools: [read, shell]
-allowedTools: [read]
+tools: ["read", "shell"]
+allowedTools: ["read"]
 includeMcpJson: false
 includePowers: false
 permissions:
