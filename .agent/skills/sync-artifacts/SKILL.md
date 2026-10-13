@@ -9,6 +9,10 @@ allowed-tools: [Bash, Read]
 src→手元PC→dst の中継転送で、dst に不足するファイルやディレクトリを配置する。踏み台越しで
 両サーバ間の直接到達性が無くても運べる。用途に応じて 2 つのスクリプトを使い分ける。
 
+標準の実行形式は `uv run python -m env_builder sync_files ...` /
+`uv run python -m env_builder sync_tree ...`。`uv run python scripts/sync_files.py ...` /
+`uv run python scripts/sync_tree.py ...` は同じコマンドを呼ぶ互換ラッパー。
+
 転送中継の一時物は、既存の `build_env/artifacts/` や `/home/<user>` 直下には置かない。
 ローカルは `build_env/work/<work-id>/stage/`、リモートは `/tmp/env_builder-<work-id>-XXXXXX/`
 を使い、作業終了時に専用ディレクトリごとcleanupする。

@@ -10,6 +10,9 @@ allowed-tools: [Bash, Read, Grep]
 リモートで読み取りコマンドを流して状況を読む。**コマンドの組み立てと出力の解釈は
 エージェントの責務**。
 
+標準の実行形式は `uv run python -m env_builder remote_exec ...`。
+`uv run python scripts/remote_exec.py ...` は同じコマンドを呼ぶ互換ラッパー。
+
 ## 基本形
 
 ```powershell

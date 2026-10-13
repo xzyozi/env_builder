@@ -9,6 +9,9 @@ allowed-tools: [Bash, Read]
 `scripts/check_connectivity.py` をラップし、build や環境整備に入る前段として
 「接続が取れること」だけを検証する。
 
+標準の実行形式は `uv run python -m env_builder check_connectivity ...`。
+`uv run python scripts/check_connectivity.py ...` は同じコマンドを呼ぶ互換ラッパー。
+
 ## 前提
 
 - `inventory/servers.json` が存在すること（無ければ `init_config.py` で生成）。
