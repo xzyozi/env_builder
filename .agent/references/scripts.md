@@ -32,8 +32,9 @@ uv run python scripts/run_build.py --project project-a --target main
 
 ## 初期設定Agent
 
-Kiroでは `.kiro/agents/project-initializer.md` を選択し、初期設定の壁打ちを開始する。
-ツール非依存の手順は `.agent/skills/project-initialization/SKILL.md` にある。
+ツール非依存の手順は `.agent/skills/project-initialization/SKILL.md` にある。全ツールでこれを
+読んで初期設定の壁打ちを開始する。Kiro では追加で、Agent 一覧から
+`.kiro/agents/project-initializer.md` を選んで開始することもできる。
 
 初期設定Agentの責務は、legacy/projectの選択、project ID・設定ルート・接続対象の確認、
 生成計画の提示、明示承認後の `init_config.py` 呼び出し、初期化後の引き渡しである。

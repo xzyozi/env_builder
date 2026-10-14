@@ -27,8 +27,8 @@
 - コーディング規約: `.agent/rules/coding-style.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 配下プロジェクト管理: `.agent/rules/project-management.md`
-- 初期設定Agent（Kiro）: `.kiro/agents/project-initializer.md`
-- 初期設定手順: `.agent/skills/project-initialization/SKILL.md`
+- 初期設定手順（全ツール共通）: `.agent/skills/project-initialization/SKILL.md`
+- 補足（Kiro のみ）: Agent 一覧から `.kiro/agents/project-initializer.md` を選べる。他のツールは上の共通手順を直接読む
 
 ## ワークフロー（スキル）
 
