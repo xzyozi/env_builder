@@ -13,7 +13,8 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
 - 基本指示・役割: `.agent/instructions.md`
 - 運用の鉄則（最重要）: `.agent/rules/operation-safety.md`
   - sudo / su は使わない。root が要る操作は root ログイン定義を使う。
-  - src には root で入らない。src は読み取り専用。
+  - src は参照専用。root 定義での接続は、理由を明示して確認を取った場合に限る。
+  - 承認が必要な操作は、内容と影響を提示して応答を待つ。
   - OSS・認証情報・作業成果物はコミットしない。
 - Git 運用: `.agent/rules/git-workflow.md`
 - 配下プロジェクト管理: `.agent/rules/project-management.md`
