@@ -17,12 +17,19 @@
 作業を始める前に、以下を読み込んで準拠すること。
 
 - 基本指示: `.agent/instructions.md`
-- 運用の鉄則（最重要 / sudo・su 禁止、src に root 禁止、OSS 非保存）: `.agent/rules/operation-safety.md`
+- 運用の鉄則（最重要 / sudo・su 禁止、src は参照専用、OSS 非保存）: `.agent/rules/operation-safety.md`
 - Git 運用: `.agent/rules/git-workflow.md`
 - コーディング規約: `.agent/rules/coding-style.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 各種ワークフロー: `.agent/skills/<name>/SKILL.md`
 
 `.agent/skills/` の各 SKILL.md は、frontmatter（`name` / `description` /
-`allowed-tools`）付きの手順書。Claude Code のスキルとしても解釈できる。
+`allowed-tools`）付きの手順書。ただし配置が `.agent/skills/` のため、Claude Code の
+スキルとしては**自動検出されない**。必要な手順は、対応する `SKILL.md` を自分で開いて
+読むこと（`context` スキルで一括読込もできる）。`allowed-tools` は Claude Code 形式の
+ツール名で、他のツールでは無視される。
+
+Claude Code のスキルとして使いたい場合は、`.claude/skills/<name>/` へ `SKILL.md` を
+リンクまたはコピーする（ローカルでの任意の対応。リポジトリには含めない）。
+
 詳細は `AGENTS.md` を参照。
