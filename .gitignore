@@ -262,3 +262,6 @@ projects/*
 
 # tmp
 tmp/*
+
+# 読み取り禁止の隔離領域（.agent/rules/quarantine.md 参照）。
+_quarantine/
