@@ -54,7 +54,7 @@ project IDと設定ルートを確定したら、変更を行わずに次を表�
 - 選択するProjectProfile
 - 生成先の `inventory/servers.json`
 - 既存ファイルがある場合の扱い（既定は維持）
-- `desired_state/` と `build_env/` の準備が別途必要であること
+- `build_env/set_env.bat` も同時に生成されること（既存なら維持）。`desired_state/` は別途準備が必要であること
 - 実行予定コマンド
 - 初期化後にユーザーが記入・設定する項目（Git管理の案件では、`build_env/set_env.bat` の `ENVB_GIT_USER` / `ENVB_GIT_PASSWORD` を含む）
 - 次に必要な明示承認
@@ -92,7 +92,7 @@ legacy経路では次を使う（uv採用時）。
 uv run python scripts/init_config.py
 ```
 
-既存ファイルを上書きする `--force` は自動選択しない。上書きが必要な場合は、対象パス、失われる内容、復元方法、可逆性を説明し、別の明示承認を得る。
+既存ファイルを上書きする `--force`（`servers.json`）と `--force-credentials`（`set_env.bat`。記入済みの認証情報が失われる。`.bak` に退避される）は自動選択しない。上書きが必要な場合は、対象パス、失われる内容、復元方法、可逆性を説明し、別の明示承認を得る。
 
 ### 6. 利用者による設定を案内する
 
@@ -102,7 +102,7 @@ uv run python scripts/init_config.py
 2. password認証の場合は `password_env` で指定した環境変数へパスワードを設定する
 3. 鍵認証の場合は秘密鍵をリポジトリ外で管理し、`key_path`だけを設定する
 4. 必要な `desired_state` を作成する
-5. Git管理の案件では、`build_env/set_env.bat` にGit認証の環境変数を自分で記入する（`init_config.py` が `inventory/set_env.sample.bat` から複製する）。値はAgentに伝えない
+5. Git管理の案件では、`build_env/set_env.bat` のGit認証の行（`rem` 済み）を外して自分で記入する（`init_config.py` が `inventory/set_env.sample.bat` から複製する）。値はAgentに伝えない
 6. 設定実体、秘密情報、作業成果物をGitへ追加しない
 
 Agentは秘密値を受け取らず、ファイルへ記入しない。設定確認では非秘密の存在・構造だけを扱う。

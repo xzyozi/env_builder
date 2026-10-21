@@ -16,5 +16,6 @@ rem set "ENVB_DST_PASSWORD=<PASSWORD>"
 rem set "ENVB_DST_ROOT_PASSWORD=<PASSWORD>"
 
 rem --- Git (GitLab) credentials. Do not embed in URLs or command lines. ---
-set "ENVB_GIT_USER=<GIT_USER>"
-set "ENVB_GIT_PASSWORD=<GIT_PASSWORD>"
+rem --- Uncomment only for projects that use Git. ---
+rem set "ENVB_GIT_USER=<GIT_USER>"
+rem set "ENVB_GIT_PASSWORD=<GIT_PASSWORD>"
