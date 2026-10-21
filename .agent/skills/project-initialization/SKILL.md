@@ -40,6 +40,9 @@ project IDが確定する前に、未選択projectの `AGENTS.md` や `.agent/` 
 - password認証または鍵認証の選択
 - password認証の場合の `password_env` の環境変数名
 - 必要なdesired state（build、packages、filesなど）
+- Git管理の有無（対象サーバ上でGitリポジトリをclone・確認する案件か）
+  - 該当する場合: リポジトリURL（認証情報を含めない）、配置先、期待するブランチ、認証に使う環境変数名（`ENVB_GIT_USER` / `ENVB_GIT_PASSWORD` など。値は聞かない）、`user.name` / `user.email` の要否
+  - 名前解決（DNS・`/etc/hosts`）が必要かは、事前に読み取りで確認する。root操作が必要な場合は、ユーザー自身が実施する前提で案内する
 - 初期化だけで終了するか、初期化後の疎通確認まで行うか
 
 パスワード、秘密鍵の内容、Cookie、トークンなどの実値は質問・表示・保存しない。ホスト名やユーザー名などの環境固有値も、必要以上に会話へ再掲しない。
@@ -53,7 +56,7 @@ project IDと設定ルートを確定したら、変更を行わずに次を表�
 - 既存ファイルがある場合の扱い（既定は維持）
 - `desired_state/` と `build_env/` の準備が別途必要であること
 - 実行予定コマンド
-- 初期化後にユーザーが記入・設定する項目
+- 初期化後にユーザーが記入・設定する項目（Git管理の案件では、`build_env/set_env.bat` の `ENVB_GIT_USER` / `ENVB_GIT_PASSWORD` を含む）
 - 次に必要な明示承認
 
 project IDの検証、設定ルート外へのパス逸脱防止、profileの解決は `ProjectRegistry` と既存CLIに委譲する。Agent内で同じパス解決ロジックを再実装しない。
@@ -99,7 +102,8 @@ uv run python scripts/init_config.py
 2. password認証の場合は `password_env` で指定した環境変数へパスワードを設定する
 3. 鍵認証の場合は秘密鍵をリポジトリ外で管理し、`key_path`だけを設定する
 4. 必要な `desired_state` を作成する
-5. 設定実体、秘密情報、作業成果物をGitへ追加しない
+5. Git管理の案件では、`build_env/set_env.bat` にGit認証の環境変数を自分で記入する（`init_config.py` が `inventory/set_env.sample.bat` から複製する）。値はAgentに伝えない
+6. 設定実体、秘密情報、作業成果物をGitへ追加しない
 
 Agentは秘密値を受け取らず、ファイルへ記入しない。設定確認では非秘密の存在・構造だけを扱う。
 
@@ -125,7 +129,8 @@ srcでは読み取り専用操作だけを行う。rootが必要な操作は、s
 7. sudo / suを使わない。srcを変更しない。root操作はrootログイン定義を使う。
 8. 初期化Agentからbuild、package導入、ファイル転送、リモート変更を自動開始しない。
 9. 失敗時は観測したエラー全文と期待状態を説明する。ただし秘密情報と不要な絶対パスはマスクする。
-10. 作成・更新するテキストファイルはUTF-8（BOMなし）/ LFで扱う。
+10. 作成・更新するテキストファイルはUTF-8（BOMなし）/ LFで扱う。ただし `.bat` はASCIIのみで書く（cmdが日本語を文字化けして壊れるため）。
+11. Git管理の有無を、必ず壁打ちで確認する。認証情報はURLやコマンドラインに埋め込まない。
 
 ## 出力フォーマット
 
