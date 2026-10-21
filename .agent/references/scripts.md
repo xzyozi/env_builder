@@ -74,7 +74,8 @@ OSによる `/tmp` の定期削除は、強制終了時に残った領域へのf
 ## init_config.py — 設定の実体ファイル生成
 
 - **用途**: `*.sample.json` から実体ファイル（`inventory/servers.json`）を生成する。あわせて `inventory/set_env.sample.bat` を `<project>/build_env/set_env.bat`（認証情報の環境変数。Git 管理外）へ複製する。bat は ASCII のみで書く。
-- **主な引数**: `--force`（既存の実体を上書き）。
+- **主な引数**: `--force`（既存の `servers.json` のみ上書き。`set_env.bat` は対象外）、
+  `--force-credentials`（既存の `set_env.bat` を上書き。事前に `set_env.bat.bak` へ退避）。
 - **メモ**: 生成後に実値（ホスト・ユーザー等）を記入し、パスワードは `password_env` で
   指定した環境変数に設定する。既存実体は既定で上書きしない。
 
