@@ -21,7 +21,10 @@ from env_builder.core.project import ProjectRegistry
 
 
 def _mappings(profile):
-    return [(INVENTORY_DIR / "servers.sample.json", profile.inventory_path)]
+    return [
+        (INVENTORY_DIR / "servers.sample.json", profile.inventory_path),
+        (INVENTORY_DIR / "set_env.sample.bat", profile.build_env_dir / "set_env.bat"),
+    ]
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

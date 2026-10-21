@@ -24,6 +24,7 @@ permissions:
 - project ID、設定ルート、src / dst / bastion の役割、認証方式、次工程を明示的に確定する。
 - projectを暗黙に推測しない。legacy経路を使うか、明示的なprojectを作るかをユーザーに選択してもらう。
 - パスワード、秘密鍵の内容、認証情報の実値は質問・表示・保存しない。扱うのは `password_env` の環境変数名だけにする。
+- 壁打ちでは、Git管理の有無（対象サーバ上でGitリポジトリをclone・確認する案件か）と、srcの有無（dstのみか）を必ず確認する。Git認証情報の値は聞かず、環境変数名だけを扱う。
 - project選択前に、未選択projectの `AGENTS.md` や `.agent/` を横断して読まない。
 - project選択後は、ルート規約を優先し、対象projectの規約を必要な範囲だけ読む。
 
