@@ -70,9 +70,7 @@ def test_force_credentials_backs_up_then_overwrites(samples: Path) -> None:
     assert servers.read_text(encoding="utf-8") == "edited"
 
 
-def test_legacy_path_uses_repo_level_dirs(
-    samples: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_legacy_path_uses_repo_level_dirs(samples: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     legacy_inventory = tmp_path / "legacy_inventory"
     legacy_build_env = tmp_path / "legacy_build_env"
     monkeypatch.setattr(project_module, "INVENTORY_DIR", legacy_inventory)
