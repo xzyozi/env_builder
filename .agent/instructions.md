@@ -36,6 +36,7 @@ Codex / Antigravity 等）でも解釈できる**ツール非依存の知識ベ�
 - **Git 運用**: `.agent/rules/git-workflow.md`
 - **コーディング規約**: `.agent/rules/coding-style.md`
 - **スクリプト仕様と境界**: `.agent/references/scripts.md`
+- **全体フロー**: `.agent/references/workflow.md`
 - **各種ワークフロー手順**: `.agent/skills/<name>/SKILL.md`
 
 ## ツール・環境による差異（読み替え）
