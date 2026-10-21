@@ -28,7 +28,16 @@ allowed-tools: [Read, Bash]
 
 project IDが確定する前に、未選択projectの `AGENTS.md` や `.agent/` を横断して読まない。project選択後は、ルート規約を優先して対象projectの規約を必要な範囲だけ読む。
 
-### 2. 壁打ちで要件を確定する
+### 2. 既存状態を判定する（壁打ちの前に必ず行う）
+
+別セッションからの再開で同じ質問を繰り返さないため、project IDが分かった時点で、質問の前に読み取りだけで状態を判定する。判定表と手順は `.agent/references/workflow.md` の「再開時の判定」を正とする。
+
+- 判定は存在確認と構造確認だけで行い、秘密値や `servers.json` の中身を会話へ出さない。
+- 設定が揃っている project は、初期設定の壁打ちを行わない。検出結果を3行程度で報告し、「続きから何をするか」だけを尋ねる。
+- 不足している項目だけを質問する。回答済みの項目は聞き直さない。
+- 判定できない項目（`set_env.bat` の記入済みか等）は推測せず、利用者に1問だけ確認する。
+
+### 3. 壁打ちで要件を確定する
 
 一度に確認できる範囲で、次の項目を質問する。
 
@@ -42,18 +51,20 @@ project IDが確定する前に、未選択projectの `AGENTS.md` や `.agent/` 
 - 必要なdesired state（build、packages、filesなど）
 - Git管理の有無（対象サーバ上でGitリポジトリをclone・確認する案件か）
   - 該当する場合: リポジトリURL（認証情報を含めない）、配置先、期待するブランチ、認証に使う環境変数名（`ENVB_GIT_USER` / `ENVB_GIT_PASSWORD` など。値は聞かない）、`user.name` / `user.email` の要否
+  - 回答は `desired_state/git.json` にまとめる。形式は `.agent/references/workflow.md` の「Git 設定」を参照する。既定値は置かず、案件ごとに聞いて作る
   - 名前解決（DNS・`/etc/hosts`）が必要かは、事前に読み取りで確認する。root操作が必要な場合は、ユーザー自身が実施する前提で案内する
 - 初期化だけで終了するか、初期化後の疎通確認まで行うか
 
 パスワード、秘密鍵の内容、Cookie、トークンなどの実値は質問・表示・保存しない。ホスト名やユーザー名などの環境固有値も、必要以上に会話へ再掲しない。
 
-### 3. 変更なしの計画を提示する
+### 4. 変更なしの計画を提示する
 
 project IDと設定ルートを確定したら、変更を行わずに次を表示する。
 
 - 選択するProjectProfile
 - 生成先の `inventory/servers.json`
 - 既存ファイルがある場合の扱い（既定は維持）
+- Git管理の案件では、`desired_state/git.json` の内容（認証情報の値を含まない）
 - `build_env/set_env.bat` も同時に生成されること（既存なら維持）。`desired_state/` は別途準備が必要であること
 - 実行予定コマンド
 - 初期化後にユーザーが記入・設定する項目（Git管理の案件では、`build_env/set_env.bat` の `ENVB_GIT_USER` / `ENVB_GIT_PASSWORD` を含む）
@@ -61,7 +72,7 @@ project IDと設定ルートを確定したら、変更を行わずに次を表�
 
 project IDの検証、設定ルート外へのパス逸脱防止、profileの解決は `ProjectRegistry` と既存CLIに委譲する。Agent内で同じパス解決ロジックを再実装しない。
 
-### 4. 初期化前のpreflightを行う
+### 5. 初期化前のpreflightを行う
 
 次を確認する。
 
@@ -74,7 +85,7 @@ project IDの検証、設定ルート外へのパス逸脱防止、profileの解
 
 既存ファイルの内容を会話へ出力しない。存在、非空、必要な構造を確認する場合も、認証情報や秘密値を表示しない。
 
-### 5. 明示承認後に初期化する
+### 6. 明示承認後に初期化する
 
 ユーザーが「この内容で作成する」と明示した後だけ、Python実行環境を確認して既存CLIを実行する。Python関連の最初の実行前に `uv --version` を一度確認し、プロジェクトがuvを採用している場合は `uv run` を使う。
 
@@ -94,20 +105,20 @@ uv run python scripts/init_config.py
 
 既存ファイルを上書きする `--force`（`servers.json`）と `--force-credentials`（`set_env.bat`。記入済みの認証情報が失われる。`.bak` に退避される）は自動選択しない。上書きが必要な場合は、対象パス、失われる内容、復元方法、可逆性を説明し、別の明示承認を得る。
 
-### 6. 利用者による設定を案内する
+### 7. 利用者による設定を案内する
 
 初期化後は、ユーザーが次を行う。
 
 1. `inventory/servers.json` にhost、port、user、接続方式、`proxy_jump`を設定する
 2. password認証の場合は `password_env` で指定した環境変数へパスワードを設定する
 3. 鍵認証の場合は秘密鍵をリポジトリ外で管理し、`key_path`だけを設定する
-4. 必要な `desired_state` を作成する
+4. 必要な `desired_state` を作成する（Git管理の案件は、承認済みの内容で `desired_state/git.json` をAgentが作成する）
 5. Git管理の案件では、`build_env/set_env.bat` のGit認証の行（`rem` 済み）を外して自分で記入する（`init_config.py` が `inventory/set_env.sample.bat` から複製する）。値はAgentに伝えない
 6. 設定実体、秘密情報、作業成果物をGitへ追加しない
 
 Agentは秘密値を受け取らず、ファイルへ記入しない。設定確認では非秘密の存在・構造だけを扱う。
 
-### 7. 初期化後に段階的に引き渡す
+### 8. 初期化後に段階的に引き渡す
 
 初期化と利用者による設定が完了しても、疎通確認や環境変更を自動開始しない。
 
@@ -122,7 +133,7 @@ srcでは読み取り専用操作だけを行う。rootが必要な操作は、s
 
 1. project IDと対象を暗黙に推測しない。
 2. 壁打ちと計画提示の段階では、ファイル変更・ネットワーク接続・リモート操作を行わない。
-3. ファイル生成は `scripts/init_config.py` に委譲し、Agent内でJSONを直接生成・編集しない。
+3. `servers.json` と `set_env.bat` の生成は `scripts/init_config.py` に委譲し、Agent内で直接生成・編集しない。承認済みの内容に限り、`desired_state/git.json`（秘密値を含まない）はAgentが作成してよい。
 4. 既存ファイルは既定で保持する。`--force` は別の明示承認なしに実行しない。
 5. パスワード、秘密鍵、トークン、Cookieなどの実値を聞かない、表示しない、ログに残さない。
 6. `ProjectRegistry` のID検証とprofile解決を再実装しない。

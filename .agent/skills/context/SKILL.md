@@ -19,6 +19,7 @@ allowed-tools: [Read, Grep, Glob]
 4. `.agent/rules/coding-style.md` — Python / uv / ruff・mypy・pytest / core の責務
 5. `.agent/rules/project-management.md` — project profile、`--project`、agent規約の適用範囲
 6. `.agent/references/scripts.md` — 各スクリプトの用途・引数・スクリプトとエージェントの境界
+7. `.agent/references/workflow.md` — 案件開始から環境整備までの全体フロー
 
 ## 読み込んだ後
 
