@@ -146,6 +146,9 @@ OSによる `/tmp` の定期削除は、強制終了時に残った領域へのf
 - **用途**: `desired_state/files.json` の対応表に従い、src から設定ファイルを取得して
   dst へ配置する（src→手元PC→dst の中継）。踏み台越しでも両サーバ間の直接到達性が
   なくても運べる。
+- **容量チェック**: 転送前に、src のサイズ + 1 GiB が dst の配置先に空いているかを確認する。
+  足りない・測れないときは転送せずに終了コード 1 で終わる（`--upload-only` は対象外）。
+  基準は `.agent/references/preflight.md`。
 - **主な引数**:
   - 既定: `files.json` に従い `--src src --dst dst`。
   - `--upload-only <LOCAL> <REMOTE>`（download をスキップし、手元のファイルを dst へ送るだけ）。
@@ -159,6 +162,9 @@ OSによる `/tmp` の定期削除は、強制終了時に残った領域へのf
 - **用途**: ディレクトリツリーを src→手元PC→dst と **tar.gz 経由**で確実に運ぶ。
   「ファイルが無いので src から取得して dst に配置する」用途の中核。SFTP 再帰転送より
   速く安定する。
+- **容量チェック**: 転送前に、`--remote-src` の合計サイズ + 1 GiB が `--remote-dst-parent` の
+  ファイルシステムに空いているかを確認する。足りない・測れないときは、作業領域も作らず
+  終了コード 1 で終わる。基準は `.agent/references/preflight.md`。
 - **主な引数**:
   - `--src src` / `--dst dst_root`（root 配置先なら root 定義）。
   - `--remote-src <src上の絶対パス>`（取得対象ディレクトリ）。

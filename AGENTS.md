@@ -9,9 +9,10 @@
 ポインタ先を読む前でも、次は常に守る。詳細・根拠は `.agent/rules/operation-safety.md`。
 
 - sudo / su は使わない。root が要る操作は root ログイン定義（例: `dst_root`）を使う。
-- src は参照専用。状態を変える操作はしない。root 定義での接続は、理由を明示して確認を取った場合に限る。
+- src は書き込み禁止。許可するのは、読み取りと、コピーによる取得だけ。root 定義での読み取りは確認なしで可（使う定義は引数で明示する）。
+- 構築は確認待ちで止まらずに進める。既存の環境を壊したら、まず元に戻し、調査結果を添えて引き継ぐ（詳細は `operation-safety.md`）。
 - OSS・認証情報・作業成果物はコミットしない（`.gitignore` 準拠）。パスワードは環境変数で渡し、コマンドラインに直書きしない。
-- 破壊的・不可逆な操作と、承認が必要な操作は、実行前にユーザーへ内容と影響を提示して**応答を待つ**。承認 UI のないツールでも、確認なしに進めない。
+- 破壊的・不可逆な操作と、承認が必要な操作は、実行前にユーザーへ内容と影響を提示して**応答を待つ**。ただし dst は基本的に制約なし（広範囲で取り返しのつかない操作を除く。詳細は `operation-safety.md`）。承認 UI のないツールでも、確認なしに進めない。
 
 ## 何をするリポジトリか
 
@@ -25,6 +26,7 @@
 - 運用の鉄則（最重要）: `.agent/rules/operation-safety.md`
 - Git 運用: `.agent/rules/git-workflow.md`
 - コーディング規約: `.agent/rules/coding-style.md`
+- 転送前の事前チェック（容量の基準と、自動実行の範囲）: `.agent/references/preflight.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 全体フロー（開始から環境整備まで）: `.agent/references/workflow.md`
 - 配下プロジェクト管理: `.agent/rules/project-management.md`

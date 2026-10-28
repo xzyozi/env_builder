@@ -19,6 +19,7 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
 - Git 運用: `.agent/rules/git-workflow.md`
 - 配下プロジェクト管理: `.agent/rules/project-management.md`
 - コーディング規約: `.agent/rules/coding-style.md`
+- 転送前の事前チェック（容量の基準と、自動実行の範囲）: `.agent/references/preflight.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 各種ワークフロー: `.agent/skills/` 配下の各 `SKILL.md`
   （context / project-initialization / connectivity-check / probe-src /
