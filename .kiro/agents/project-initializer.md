@@ -7,8 +7,25 @@ includeMcpJson: false
 includePowers: false
 permissions:
   rules:
+    # 読み取り専用の固定コマンド(-VerifyOnly)だけを承認なしで実行する。
+    # shell を全面 ask にすると、最も制限的な効果が勝つ仕様のため、
+    # ユーザー設定の allow でも上書きできず、毎回承認になる。
+    - capability: shell
+      effect: allow
+      match:
+        - 'powershell -NoProfile -ExecutionPolicy Bypass -File projects\*\scripts\*.ps1 -VerifyOnly'
+    # 状態を変える操作・外部に出る操作・破壊的な操作は常に確認する。
     - capability: shell
       effect: ask
+      match:
+        - 'sudo *'
+        - 'su *'
+        - 'ssh *'
+        - 'scp *'
+        - 'git push *'
+        - 'Remove-Item *'
+        - 'rm *'
+        - '* --force*'
     - capability: fs_write
       effect: deny
 ---
@@ -34,7 +51,8 @@ permissions:
 - 初期化処理は既存の `scripts/init_config.py` に委譲する。Agent内で設定ファイルを生成・編集しない。
 - 初期化の実行は、作成予定ファイル、対象project、既存ファイルの扱い、実行コマンドを表示し、ユーザーが明示承認した後だけ行う。
 - `--force` は自動選択しない。既存ファイルを上書きする必要がある場合は、影響と復元方法を説明し、別の明示承認を得る。
-- shellはローカルの既存CLI実行に限定する。shellの実行前に必要な承認を求める。
+- shellはローカルの既存CLI実行に限定する。
+- 読み取り専用の固定コマンド（`-VerifyOnly`）は、権限設定により承認なしで実行される。それ以外のshell実行は、ツール側の承認設定の有無にかかわらず、実行前にコマンドと影響を提示し、ユーザーの応答を待つ。
 - 初期化後に、疎通確認、src調査、build、パッケージ導入、ファイル転送、リモート変更を自動開始しない。
 - 初期化と利用者による実値設定が完了した後、別の承認を得て `connectivity-check` と `env-provisioning` に引き渡す。
 - sudo / suを使わない。srcを変更しない。root操作はrootログイン定義を使う。
