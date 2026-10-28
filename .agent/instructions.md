@@ -35,6 +35,7 @@ Codex / Antigravity 等）でも解釈できる**ツール非依存の知識ベ�
 - **運用の鉄則**: `.agent/rules/operation-safety.md`（最重要。sudo/su 禁止など）
 - **Git 運用**: `.agent/rules/git-workflow.md`
 - **コーディング規約**: `.agent/rules/coding-style.md`
+- **転送前の事前チェック**: `.agent/references/preflight.md`（容量の基準と、自動実行の範囲）
 - **スクリプト仕様と境界**: `.agent/references/scripts.md`
 - **全体フロー**: `.agent/references/workflow.md`
 - **各種ワークフロー手順**: `.agent/skills/<name>/SKILL.md`

@@ -8,6 +8,10 @@ desired_state/files.json の対応表に従い、参照元(src)から設定フ�
 ローカルファイルを dst へ送るだけの使い方も可能。src→dst の中継ファイルは
 作業ID付きの一時領域へ置き、転送終了時にディレクトリごと削除する。
 
+files.json に従う転送では、転送前に容量を確認する（src のサイズ + 1 GiB が dst の配置先に
+空いていること。読み取りのみ）。足りない場合や測定できない場合は、転送せずに失敗する。
+--upload-only は src を使わないため、この確認の対象外。
+
 使い方:
     uv run python scripts/sync_files.py                       # files.json に従い src->dst
     uv run python scripts/sync_files.py --upload-only <local> <remote>
@@ -25,7 +29,11 @@ from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectProfile, ProjectRegistry
 from env_builder.core.ssh import SSHSession
 from env_builder.core.work_context import WorkContext
+from env_builder.ops.capacity import measure_source, parent_directories, verify_destination_space
 from env_builder.ops.transfer import download_files, upload_files
+
+# 容量チェック（du / df）のタイムアウト秒。
+_CAPACITY_TIMEOUT_SEC = 600
 
 
 def _sync_via_local(inv, logger, src_key: str, dst_key: str, profile: ProjectProfile) -> int:
@@ -35,6 +43,24 @@ def _sync_via_local(inv, logger, src_key: str, dst_key: str, profile: ProjectPro
     if not entries:
         logger.info("files.json に対象がありません。")
         return 0
+
+    # 転送前の容量チェック（読み取りのみ）。足りない・測れない場合は、作業領域も作らず終了する
+    logger.info("容量チェック: src(%s) -> dst(%s)", src_key, dst_key)
+    with SSHSession(inv, src_key) as src_ssh:
+        data_bytes = measure_source(
+            src_ssh, [entry["src_path"] for entry in entries], timeout=_CAPACITY_TIMEOUT_SEC, logger=logger
+        )
+    if data_bytes is None:
+        return 1
+    with SSHSession(inv, dst_key) as dst_ssh:
+        if not verify_destination_space(
+            dst_ssh,
+            parent_directories([entry["dst_path"] for entry in entries]),
+            data_bytes,
+            timeout=_CAPACITY_TIMEOUT_SEC,
+            logger=logger,
+        ):
+            return 1
 
     with WorkContext(
         "sync-files",

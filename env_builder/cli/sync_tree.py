@@ -3,6 +3,7 @@
 「ファイルが無いので src から取得して dst に配置する」用途の中核。
 SFTP の再帰転送は遅く不安定なため、次の流れで確実に運ぶ。
 
+  0. 転送前に容量を確認する（src のサイズ + 1 GiB が dst の配置先に空いていること。読み取りのみ）
   1. src の専用 /tmp 作業領域で対象ディレクトリを tar.gz に固める
   2. 手元PCの専用作業領域へ download
   3. dst の専用 /tmp 作業領域へ upload（root 配置なら --dst dst_root）
@@ -31,6 +32,7 @@ from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectRegistry
 from env_builder.core.ssh import SSHSession
 from env_builder.core.work_context import WorkContext
+from env_builder.ops.capacity import measure_source, verify_destination_space
 from env_builder.ops.transfer import TREE_ARCHIVE_NAME, deploy_tree, fetch_tree, split_remote_dir
 
 
@@ -55,6 +57,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     remote_src = args.remote_src.rstrip("/")
     parent, base = split_remote_dir(remote_src)
     destination = posixpath.join(args.remote_dst_parent, base)
+
+    # 0. 転送前の容量チェック（読み取りのみ）。足りない・測れない場合は、作業領域も作らず終了する
+    logger.info("容量チェック: src(%s) %s -> dst(%s) %s", args.src, remote_src, args.dst, args.remote_dst_parent)
+    with SSHSession(inv, args.src) as ssh:
+        data_bytes = measure_source(ssh, [remote_src], timeout=args.timeout, logger=logger)
+    if data_bytes is None:
+        return 1
+    with SSHSession(inv, args.dst) as ssh:
+        if not verify_destination_space(ssh, [args.remote_dst_parent], data_bytes, timeout=args.timeout, logger=logger):
+            return 1
 
     with WorkContext(
         "sync-tree",

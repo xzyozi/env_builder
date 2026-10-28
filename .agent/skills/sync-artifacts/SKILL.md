@@ -59,6 +59,11 @@ uv run python scripts/sync_tree.py --src src --dst dst_root `
 - 何を配置すべきかは、`remote-investigation` や `run_build` の失敗ログから特定する
   （不足ヘッダ・ライブラリ・共通モジュール等）。
 - root 配置先（`/opt` 等）は昇格せず root 定義の `--dst` で運ぶ（operation-safety 準拠）。
+- 転送の前に、スクリプトが容量を確認する（src のサイズ + 1 GiB が dst の配置先に空いていること。
+  基準は `.agent/references/preflight.md`）。終了コード 1 で、ログに「空きが不足」「測定できません」と
+  出たときは、転送されていない。空きを確保する案（不要物の整理など）を提示し、応答を待つ。同じ
+  コマンドを繰り返さない。
+- root 定義（`src_root` / `dst_root`）を使う転送と `--upload-only` は、提示して応答を待ってから実行する。
 - OSS アーカイブの恒久的な持ち込みはしない。中継の一時経由に留め、専用作業領域のcleanupを確認する。
 - cleanup失敗時は `build_env/logs/work_<work-id>/manifest.json` を確認し、marker・所有者・
   パスprefixを検証してから個別に棚卸しする。`/tmp` 全体やHOME直下を推測で削除しない。
@@ -66,5 +71,6 @@ uv run python scripts/sync_tree.py --src src --dst dst_root `
 ## 参照
 
 - スクリプト仕様: `.agent/references/scripts.md`（sync_files.py / sync_tree.py）
+- 転送前の事前チェック: `.agent/references/preflight.md`
 - 運用安全: `.agent/rules/operation-safety.md`
 - 中核ループ: `.agent/skills/env-provisioning/SKILL.md`
