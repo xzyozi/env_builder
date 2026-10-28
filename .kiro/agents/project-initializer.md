@@ -21,8 +21,9 @@ permissions:
         - 'uv run python -m env_builder sync_files *'
         - 'uv run python scripts/sync_tree.py *'
         - 'uv run python scripts/sync_files.py *'
-    # 状態を変える操作・外部に出る操作・破壊的な操作・容量チェックを通らない操作は常に確認する。
-    # ask は allow より優先されるため、上の転送スクリプトでも root 定義と --upload-only は確認になる。
+    # 常に確認するもの。dst は基本的に制約なしなので、dst_root と --upload-only は対象にしない。
+    # src への root 接続(src_root)、接続先を判別できない ssh/scp、ローカルの破壊的操作を確認にする。
+    # ask は allow より優先されるため、上の転送スクリプトでも src_root を使う場合は確認になる。
     - capability: shell
       effect: ask
       match:
@@ -35,8 +36,6 @@ permissions:
         - 'rm *'
         - '* --force*'
         - '*src_root*'
-        - '*dst_root*'
-        - '*--upload-only*'
     - capability: fs_write
       effect: deny
 ---
@@ -64,8 +63,9 @@ permissions:
 - `--force` は自動選択しない。既存ファイルを上書きする必要がある場合は、影響と復元方法を説明し、別の明示承認を得る。
 - shellはローカルの既存CLI実行に限定する。
 - 読み取り専用の固定コマンド（`-VerifyOnly`）と、容量チェック付きの転送スクリプト（`sync_tree` / `sync_files`）は、権限設定により承認なしで実行される。転送スクリプトは、転送前にsrcのサイズ + 1 GiBの空きをdstで確認し、足りなければ転送しない。基準は `.agent/references/preflight.md`。
-- 上記以外のshell実行（root定義の転送、`--upload-only`、`ssh` / `scp` の直接実行、削除や上書きを伴う操作を含む）は、ツール側の承認設定の有無にかかわらず、実行前にコマンドと影響を提示し、ユーザーの応答を待つ。
-- srcには書き込まない。srcに対しては読み取りだけを行う。
+- srcは書き込み禁止。許可するのは、読み取りと、コピーによる取得（転送が専用の `/tmp` 作業領域に作るコピーと、その領域内の移動・cleanupを含む）だけで、srcの既存のファイルは変更・削除・移動しない。
+- dstは基本的に制約なし。配置、上書き、削除、root定義（`dst_root`）での操作、`--upload-only` を確認なしで実行してよい。ただし、取り返しのつかない広範囲の操作（`/` や `$HOME` 全体の削除など）は、実行前にコマンドと影響を提示して応答を待つ。
+- srcへのroot接続（`src_root`）、`ssh` / `scp` の直接実行、上記以外のshell実行は、ツール側の承認設定の有無にかかわらず、実行前にコマンドと影響を提示し、ユーザーの応答を待つ。
 - 初期化後に、疎通確認、src調査、build、パッケージ導入、ファイル転送、リモート変更を自動開始しない。
 - 初期化と利用者による実値設定が完了した後、別の承認を得て `connectivity-check` と `env-provisioning` に引き渡す。
 - sudo / suを使わない。srcを変更しない。root操作はrootログイン定義を使う。
