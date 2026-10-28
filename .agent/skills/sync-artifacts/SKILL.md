@@ -63,8 +63,8 @@ uv run python scripts/sync_tree.py --src src --dst dst_root `
   基準は `.agent/references/preflight.md`）。終了コード 1 で、ログに「空きが不足」「測定できません」と
   出たときは、転送されていない。空きを確保する案（不要物の整理など）を提示し、応答を待つ。同じ
   コマンドを繰り返さない。
-- src に root 定義（`src_root`）で接続する転送は、理由を示して応答を待ってから実行する。dst への
-  転送（`dst_root` と `--upload-only` を含む）は確認なしで実行してよい。
+- src の読み取り・コピー取得は、root 定義（`src_root`）でも確認なしで実行してよい。dst への転送
+  （`dst_root` と `--upload-only` を含む）も確認なしで実行してよい。使う定義は `--src` / `--dst` で明示する。
 - OSS アーカイブの恒久的な持ち込みはしない。中継の一時経由に留め、専用作業領域のcleanupを確認する。
 - cleanup失敗時は `build_env/logs/work_<work-id>/manifest.json` を確認し、marker・所有者・
   パスprefixを検証してから個別に棚卸しする。`/tmp` 全体やHOME直下を推測で削除しない。
