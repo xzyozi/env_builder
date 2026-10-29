@@ -38,6 +38,8 @@ Codex / Antigravity 等）でも解釈できる**ツール非依存の知識ベ�
 - **転送前の事前チェック**: `.agent/references/preflight.md`（容量の基準と、自動実行の範囲）
 - **スクリプト仕様と境界**: `.agent/references/scripts.md`
 - **全体フロー**: `.agent/references/workflow.md`
+- **課題管理**: `.agent/rules/issue-tracking.md`（手順は `.agent/skills/issue-tracking/SKILL.md`）。
+  project の作業を始めるとき `docs/issues/INDEX.md` を読み、終えるとき状態と未決事項を更新する
 - **各種ワークフロー手順**: `.agent/skills/<name>/SKILL.md`
 
 ## ツール・環境による差異（読み替え）
