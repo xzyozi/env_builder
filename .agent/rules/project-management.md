@@ -29,9 +29,13 @@ CLIの `--project <id>` または依頼文で明示する。
 ├── inventory/servers.json       # 機密。Git管理外
 ├── desired_state/                # 案件固有の実体。Git管理外
 ├── build_env/                    # ログ・作業領域。Git管理外
+├── docs/issues/                  # 課題管理（INDEX.md と課題ファイル）。Git管理外
 ├── AGENTS.md                     # 任意。プロジェクト固有のagent入口
 └── .agent/                       # 任意。プロジェクト固有の手順・規約
 ```
+
+`docs/issues/` の運用は `.agent/rules/issue-tracking.md` に従う。作業の開始時に `INDEX.md` を読み、
+終了時に更新する。課題文書にもIP・パスワード・認証情報を書かない。
 
 認証情報、鍵、実サーバ値はprofile IDやログに埋め込まない。パスワードは既存どおり
 `password_env`で指定した環境変数から取得する。
