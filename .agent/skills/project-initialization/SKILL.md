@@ -53,6 +53,7 @@ project IDが確定する前に、未選択projectの `AGENTS.md` や `.agent/` 
   - 該当する場合: リポジトリURL（認証情報を含めない）、配置先、期待するブランチ、認証に使う環境変数名（`ENVB_GIT_USER` / `ENVB_GIT_PASSWORD` など。値は聞かない）、`user.name` / `user.email` の要否
   - 回答は `desired_state/git.json` にまとめる。形式は `.agent/references/workflow.md` の「Git 設定」を参照する。既定値は置かず、案件ごとに聞いて作る
   - 名前解決（DNS・`/etc/hosts`）が必要かは、事前に読み取りで確認する。root操作が必要な場合は、ユーザー自身が実施する前提で案内する
+- 課題管理（`docs/issues/INDEX.md`）を作るか。既に課題管理を持つ project は作らない
 - 初期化だけで終了するか、初期化後の疎通確認まで行うか
 
 パスワード、秘密鍵の内容、Cookie、トークンなどの実値は質問・表示・保存しない。ホスト名やユーザー名などの環境固有値も、必要以上に会話へ再掲しない。
@@ -66,6 +67,7 @@ project IDと設定ルートを確定したら、変更を行わずに次を表�
 - 既存ファイルがある場合の扱い（既定は維持）
 - Git管理の案件では、`desired_state/git.json` の内容（認証情報の値を含まない）
 - `build_env/set_env.bat` も同時に生成されること（既存なら維持）。`desired_state/` は別途準備が必要であること
+- 課題管理を作る場合は、`docs/issues/INDEX.md` を `.agent/templates/issues-INDEX.md` から作成すること（既存なら維持）
 - 実行予定コマンド
 - 初期化後にユーザーが記入・設定する項目（Git管理の案件では、`build_env/set_env.bat` の `ENVB_GIT_USER` / `ENVB_GIT_PASSWORD` を含む）
 - 次に必要な明示承認
@@ -104,6 +106,16 @@ uv run python scripts/init_config.py
 ```
 
 既存ファイルを上書きする `--force`（`servers.json`）と `--force-credentials`（`set_env.bat`。記入済みの認証情報が失われる。`.bak` に退避される）は自動選択しない。上書きが必要な場合は、対象パス、失われる内容、復元方法、可逆性を説明し、別の明示承認を得る。
+
+### 6b. 課題管理の INDEX を作る（明示承認後）
+
+手順 6 の承認に、課題管理の作成が含まれる場合だけ行う。`init_config.py` は課題管理を作らないため、編集ツールで作る。
+
+1. 作成先は `<project-root>/<project-id>/docs/issues/INDEX.md`。既存なら上書きしない。
+2. `.agent/templates/issues-INDEX.md` を元にし、課題がまだ無いので例の行（`001-example`）と未決事項の例の行は外す。見出しと表は残す。
+3. 以後の起票・状態更新は `.agent/skills/issue-tracking/SKILL.md` に従う。
+
+承認が無い場合は作らない。後から利用者が依頼したときに、同じ手順で作る。
 
 ### 7. 利用者による設定を案内する
 

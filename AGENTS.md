@@ -30,6 +30,8 @@
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 全体フロー（開始から環境整備まで）: `.agent/references/workflow.md`
 - 配下プロジェクト管理: `.agent/rules/project-management.md`
+- 課題管理: `.agent/rules/issue-tracking.md`。project の作業を始めるとき `docs/issues/INDEX.md` を読み、終えるとき状態と未決事項を更新する
+- 課題管理の手順: `.agent/skills/issue-tracking/SKILL.md`
 - 初期設定手順（全ツール共通）: `.agent/skills/project-initialization/SKILL.md`
 - 補足（Kiro のみ）: Agent 一覧から `.kiro/agents/project-initializer.md` を選べる。他のツールは上の共通手順を直接読む
 
@@ -37,6 +39,7 @@
 
 - コンテキスト読込: `.agent/skills/context/SKILL.md`
 - プロジェクト初期設定: `.agent/skills/project-initialization/SKILL.md`
+- 課題管理（起票・状態更新・INDEX 更新）: `.agent/skills/issue-tracking/SKILL.md`
 - 疎通確認: `.agent/skills/connectivity-check/SKILL.md`
 - src 現状収集: `.agent/skills/probe-src/SKILL.md`
 - リモート調査: `.agent/skills/remote-investigation/SKILL.md`

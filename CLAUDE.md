@@ -20,6 +20,7 @@
 - 運用の鉄則（最重要 / sudo・su 禁止、src は参照専用、OSS 非保存）: `.agent/rules/operation-safety.md`
 - Git 運用: `.agent/rules/git-workflow.md`
 - コーディング規約: `.agent/rules/coding-style.md`
+- 課題管理: `.agent/rules/issue-tracking.md`（手順は `.agent/skills/issue-tracking/SKILL.md`）。project の作業を始めるとき `docs/issues/INDEX.md` を読み、終えるとき状態と未決事項を更新する
 - 転送前の事前チェック（容量の基準と、自動実行の範囲）: `.agent/references/preflight.md`
 - スクリプト仕様と境界: `.agent/references/scripts.md`
 - 各種ワークフロー: `.agent/skills/<name>/SKILL.md`
