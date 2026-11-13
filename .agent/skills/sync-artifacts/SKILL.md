@@ -29,6 +29,7 @@ src→手元PC→dst の中継転送で、dst に不足するファイルやデ�
 ```powershell
 uv run python scripts/sync_files.py                       # files.json に従う
 uv run python scripts/sync_files.py --upload-only <LOCAL> <REMOTE>   # 手元→dst のみ
+uv run python scripts/sync_files.py --upload-only <LOCAL> <REMOTE> --no-overwrite   # 既存なら送らない
 ```
 
 - srcからの中継ファイルは `build_env/work/<work-id>/stage/file_NNN` に作成される。
