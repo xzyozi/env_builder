@@ -15,11 +15,15 @@ files.json に従う転送では、転送前に容量を確認する（src の�
 使い方:
     uv run python scripts/sync_files.py                       # files.json に従い src->dst
     uv run python scripts/sync_files.py --upload-only <local> <remote>
+    uv run python scripts/sync_files.py --upload-only <local> <remote> --no-overwrite
+
+--no-overwrite は --upload-only 専用。dst に同名のパスが既にあれば、送らずに終了コード 1 で終わる。
 """
 
 from __future__ import annotations
 
 import argparse
+import shlex
 from typing import Optional, Sequence
 
 from env_builder.cli._common import add_project_argument
@@ -94,7 +98,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         metavar=("LOCAL", "REMOTE"),
         help="ローカルファイルを dst へ送るだけ（download をスキップ）",
     )
+    parser.add_argument(
+        "--no-overwrite",
+        action="store_true",
+        help="--upload-only 専用。dst に同名のパスが既にあれば送らずに失敗する",
+    )
     args = parser.parse_args(argv)
+    if args.no_overwrite and not args.upload_only:
+        parser.error("--no-overwrite は --upload-only と一緒に指定してください")
 
     profile = ProjectRegistry().resolve(args.project)
     logger = get_logger(project_id=profile.project_id)
@@ -104,6 +115,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         local, remote = args.upload_only
         logger.info("dst(%s) へアップロード: %s -> %s", args.dst, local, remote)
         with SSHSession(inv, args.dst) as ssh:
+            if args.no_overwrite and ssh.run(f"test -e {shlex.quote(remote)}", timeout=60).ok:
+                logger.error("既に存在するため送信しません(--no-overwrite): %s", remote)
+                return 1
             ssh.put_file(local, remote)
         logger.info("完了")
         return 0

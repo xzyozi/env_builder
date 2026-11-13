@@ -152,6 +152,7 @@ OSによる `/tmp` の定期削除は、強制終了時に残った領域へのf
 - **主な引数**:
   - 既定: `files.json` に従い `--src src --dst dst`。
   - `--upload-only <LOCAL> <REMOTE>`（download をスキップし、手元のファイルを dst へ送るだけ）。
+  - `--no-overwrite`（`--upload-only` 専用）。dst に同名のパスが既にあれば、送らずに終了コード 1 で終わる。
 - **中継物**: `build_env/work/<work-id>/stage/file_NNN` に作成し、作業終了時に作業ディレクトリごと削除。
   失敗時もcleanupする。`--upload-only` の入力ファイルと `dst_path` の永続配置先は削除しない。
 - **メモ**: `files.json` に `mode` があれば `chmod` し、失敗時は転送全体を失敗扱いにする。root
