@@ -12,8 +12,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from .config import BUILD_ENV_DIR
-from .project import validate_project_id
+from env_builder.core.config import BUILD_ENV_DIR
+from env_builder.core.project import validate_project_id
 
 _UNSAFE_LABEL_RE = re.compile(r"[^A-Za-z0-9._-]+")
 _MAX_RUN_DIR_ATTEMPTS = 1000

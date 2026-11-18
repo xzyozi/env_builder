@@ -4,11 +4,11 @@
 環境を整えて build を通すための共通処理を提供する。
 """
 
-from .config import Inventory, ServerSpec, load_inventory
-from .logging_utils import get_logger, new_run_dir
-from .project import ProjectProfile, ProjectRegistry, validate_project_id
-from .ssh import SSHResult, SSHSession
-from .work_context import WorkContext
+from env_builder.core.config import Inventory, ServerSpec, load_inventory
+from env_builder.core.logging_utils import get_logger, new_run_dir
+from env_builder.core.project import ProjectProfile, ProjectRegistry, validate_project_id
+from env_builder.core.ssh import SSHResult, SSHSession
+from env_builder.core.work_context import WorkContext
 
 __all__ = [
     "Inventory",

@@ -31,8 +31,8 @@ try:
 except ImportError as e:  # pragma: no cover - 依存未導入時の明確なエラー
     raise ImportError("paramiko が必要です。`uv sync` もしくは `uv add paramiko` で導入してください。") from e
 
-from .config import Inventory, ServerSpec
-from .host_keys import configure_host_keys
+from env_builder.core.config import Inventory, ServerSpec
+from env_builder.core.host_keys import configure_host_keys
 
 logger = logging.getLogger("env_builder")
 

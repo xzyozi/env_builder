@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from .config import BUILD_ENV_DIR, DESIRED_STATE_DIR, INVENTORY_DIR, REPO_ROOT
+from env_builder.core.config import BUILD_ENV_DIR, DESIRED_STATE_DIR, INVENTORY_DIR, REPO_ROOT
 
 PROJECT_ROOT_ENV = "ENVB_PROJECT_ROOT"
 _DEFAULT_PROJECTS_ROOT = REPO_ROOT / "projects"
