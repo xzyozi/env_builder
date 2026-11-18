@@ -36,6 +36,9 @@ def load_json(path: Path) -> dict:
     return _strip_comments(data)
 
 
+AUTH_METHODS = ("key", "password")
+
+
 @dataclass
 class AuthSpec:
     method: str = "key"  # "key" | "password"
@@ -68,8 +71,13 @@ class ServerSpec:
     @classmethod
     def from_dict(cls, name: str, d: dict) -> "ServerSpec":
         auth_d = d.get("auth", {}) or {}
+        method = auth_d.get("method", "key")
+        if method not in AUTH_METHODS:
+            raise ValueError(
+                f"サーバ '{name}' の auth.method が不正です: {method!r}（{' / '.join(AUTH_METHODS)} のいずれか）"
+            )
         auth = AuthSpec(
-            method=auth_d.get("method", "key"),
+            method=method,
             key_path=auth_d.get("key_path"),
             password_env=auth_d.get("password_env"),
         )
