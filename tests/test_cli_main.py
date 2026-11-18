@@ -233,6 +233,17 @@ def test_apply_packages_main_returns_one_when_install_fails(project_dir: Path, m
     assert apply_packages.main(["--project", PROJECT]) == 1
 
 
+def test_apply_packages_main_does_not_install_when_query_fails(
+    project_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(project_dir, "packages.json", {"packages": [{"name": "gcc"}]})
+    FakeSSHSession.script = [SSHResult(124, "", "", "timeout")]
+    monkeypatch.setattr(apply_packages, "SSHSession", FakeSSHSession)
+
+    assert apply_packages.main(["--project", PROJECT]) == 1
+    assert not any("install" in command for command in FakeSSHSession.commands)
+
+
 def test_apply_packages_main_rejects_malformed_entry_before_connecting(
     project_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

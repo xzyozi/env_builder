@@ -20,6 +20,10 @@ DEFAULT_PACKAGE_MANAGER = "dnf"
 INSTALL_TIMEOUT_SEC = 1800
 
 
+class PackageQueryError(RuntimeError):
+    """導入済みかどうかをリモートで確認できなかった場合のエラー。"""
+
+
 def parse_packages_config(config: Mapping[str, Any]) -> Tuple[str, List[str]]:
     """packages.json の内容から、パッケージマネージャ名と導入対象の名前を取り出す。
 
@@ -67,9 +71,19 @@ def install_command(package_manager: str, packages: List[str]) -> str:
 
 
 def is_installed(runner: CommandRunner, pkg: str) -> bool:
-    """パッケージが導入済みか。rpm の終了コード（`echo $?` の出力）が 0 なら導入済み。"""
+    """パッケージが導入済みか。rpm の終了コード（`echo $?` の出力）が 0 なら導入済み、1 なら未導入。
+
+    コマンドが正常終了せず、出力も 0 / 1 の最終行でない場合は、未導入と区別できないため
+    PackageQueryError を送出する（確認できないまま install へ進まないようにする）。
+    """
     res = runner.run(rpm_query_command(pkg))
-    return res.stdout.strip().endswith("0")
+    lines = res.stdout.strip().splitlines()
+    code = lines[-1].strip() if lines else ""
+    if not res.ok or code not in ("0", "1"):
+        raise PackageQueryError(
+            f"パッケージの導入状態を確認できません: {pkg} (status={res.status}, exit={res.exit_code})"
+        )
+    return code == "0"
 
 
 def find_missing(runner: CommandRunner, packages: List[str]) -> List[str]:
