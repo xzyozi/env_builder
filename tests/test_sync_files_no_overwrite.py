@@ -7,12 +7,13 @@ from typing import Any, List
 import pytest
 
 from env_builder.cli import sync_files
-from env_builder.core.ssh import SSHResult
+from env_builder.core.ssh import STATUS_TIMEOUT, SSHResult
 
 
 class Recorder:
-    def __init__(self, remote_exists: bool) -> None:
+    def __init__(self, remote_exists: bool, check_result: Any = None) -> None:
         self.remote_exists = remote_exists
+        self.check_result = check_result
         self.commands: List[str] = []
         self.puts: List[tuple] = []
 
@@ -39,6 +40,8 @@ def install(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, recorder: Recorder)
 
         def run(self, command: str, timeout: int = 600, **kwargs: Any) -> SSHResult:
             recorder.commands.append(command)
+            if recorder.check_result is not None:
+                return recorder.check_result
             return SSHResult(0 if recorder.remote_exists else 1, "", "")
 
         def put_file(self, local: str, remote: str) -> None:
@@ -66,6 +69,17 @@ def test_no_overwrite_uploads_when_remote_is_absent(monkeypatch: pytest.MonkeyPa
 
     assert code == 0
     assert recorder.puts == [("a.sh", "/tmp/a.sh")]
+
+
+def test_no_overwrite_stops_when_existence_check_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    for result in (SSHResult(124, "", "", STATUS_TIMEOUT), SSHResult(255, "", "ssh error")):
+        recorder = Recorder(remote_exists=False, check_result=result)
+        install(monkeypatch, tmp_path, recorder)
+
+        code = sync_files.main(["--dst", "d", "--upload-only", "a.sh", "/tmp/a.sh", "--no-overwrite"])
+
+        assert code == 1
+        assert recorder.puts == []
 
 
 def test_upload_only_without_flag_does_not_check_remote(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

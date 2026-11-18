@@ -31,7 +31,7 @@ from env_builder.core.config import load_inventory
 from env_builder.core.desired_state import load_files
 from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectProfile, ProjectRegistry
-from env_builder.core.ssh import SSHSession
+from env_builder.core.ssh import STATUS_COMPLETED, SSHSession
 from env_builder.core.work_context import WorkContext
 from env_builder.ops.capacity import measure_source, parent_directories, verify_destination_space
 from env_builder.ops.transfer import download_files, upload_files
@@ -115,9 +115,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         local, remote = args.upload_only
         logger.info("dst(%s) へアップロード: %s -> %s", args.dst, local, remote)
         with SSHSession(inv, args.dst) as ssh:
-            if args.no_overwrite and ssh.run(f"test -e {shlex.quote(remote)}", timeout=60).ok:
-                logger.error("既に存在するため送信しません(--no-overwrite): %s", remote)
-                return 1
+            if args.no_overwrite:
+                check = ssh.run(f"test -e {shlex.quote(remote)}", timeout=60)
+                if check.ok:
+                    logger.error("既に存在するため送信しません(--no-overwrite): %s", remote)
+                    return 1
+                # 正常終了かつ exit 1 だけを「存在しない」とみなす。timeout・中断・
+                # その他の終了値では存在を判定できないため、上書きを避けて止まる。
+                if check.status != STATUS_COMPLETED or check.exit_code != 1:
+                    logger.error(
+                        "存在確認に失敗したため送信しません(--no-overwrite): status=%s exit=%s",
+                        check.status,
+                        check.exit_code,
+                    )
+                    return 1
             ssh.put_file(local, remote)
         logger.info("完了")
         return 0
