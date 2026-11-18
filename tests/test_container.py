@@ -133,6 +133,19 @@ def test_render_run_command_uses_environment_reference(project_config: Container
     assert "podman run" in command
 
 
+def test_render_run_command_keeps_multi_element_entrypoint(project_config: ContainerProjectConfig) -> None:
+    raw = {
+        "Id": "container-id",
+        "Name": "/app",
+        "Config": {"Entrypoint": ["tini", "--", "/app/start"], "Cmd": ["serve"]},
+        "HostConfig": {},
+    }
+    inspection = normalize_container_inspection(raw, project_config)
+    command = render_run_command(inspection.run_spec)
+    assert "--entrypoint tini" in command
+    assert command.endswith("registry.example/app:stable -- /app/start serve")
+
+
 def test_snapshot_image_ref_uses_utc_timestamp() -> None:
     timestamp = datetime(2026, 10, 6, 15, 30, tzinfo=timezone.utc)
 
