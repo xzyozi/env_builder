@@ -18,6 +18,7 @@ from env_builder.core.container import (
 )
 from env_builder.core.logging_utils import get_logger, new_run_dir
 from env_builder.core.project import ProjectRegistry
+from env_builder.core.ssh import SSHSession
 from env_builder.ops.container import execute_image_transfer, inspect_container, inspect_runtime_context
 
 
@@ -103,9 +104,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         logger.warning("transfer_mode=commitは移送元のimage storeを変更します。")
 
     inventory = load_inventory(profile.inventory_path)
-    source_context = inspect_runtime_context(inventory, config.source_target, adapter, timeout=args.timeout)
-    destination_context = inspect_runtime_context(inventory, config.destination_target, adapter, timeout=args.timeout)
-    inspection = inspect_container(inventory, config, adapter, timeout=args.timeout)
+
+    def open_session(target: str) -> SSHSession:
+        return SSHSession(inventory, target)
+
+    source_context = inspect_runtime_context(open_session, config.source_target, adapter, timeout=args.timeout)
+    destination_context = inspect_runtime_context(
+        open_session, config.destination_target, adapter, timeout=args.timeout
+    )
+    inspection = inspect_container(open_session, config, adapter, timeout=args.timeout)
     plan = build_image_transfer_plan(config, adapter, profile.project_id)
     payload = _build_payload(profile, config, inspection, plan, source_context, destination_context)
 
@@ -121,7 +128,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not args.execute_image:
         return 0
 
-    result = execute_image_transfer(profile, config, adapter, plan, timeout=args.timeout)
+    result = execute_image_transfer(profile, open_session, config, adapter, plan, timeout=args.timeout)
     payload["image_transfer_result"] = result
     plan_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return 0 if result.get("status") == "completed" else 1
