@@ -92,6 +92,22 @@ def test_validate_package_config_rejects_unsafe_package_name(name: str) -> None:
         validate_package_config("dnf", ["gcc", name])
 
 
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"packages": "gcc"},
+        {"packages": ["gcc"]},
+        {"packages": [{}]},
+        {"packages": [{"name": ""}]},
+        {"packages": [{"name": 1}]},
+        {"packages": [{"name": "gcc", "state": 1}]},
+    ],
+)
+def test_parse_packages_config_rejects_malformed_structure(config: dict) -> None:
+    with pytest.raises(ValueError):
+        parse_packages_config(config)
+
+
 def test_is_installed_true_when_rpm_exit_code_is_zero() -> None:
     runner = FakeRunner(default=_query_result(True))
 

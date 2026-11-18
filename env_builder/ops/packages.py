@@ -23,10 +23,25 @@ INSTALL_TIMEOUT_SEC = 1800
 def parse_packages_config(config: Mapping[str, Any]) -> Tuple[str, List[str]]:
     """packages.json の内容から、パッケージマネージャ名と導入対象の名前を取り出す。
 
-    `state` が `present`（既定）のものだけを対象にする。値の検証は validate_package_config が行う。
+    `state` が `present`（既定）のものだけを対象にする。構造が不正なら ValueError を送出する。
+    名前の中身の検証は validate_package_config が行う。
     """
     package_manager = config.get("package_manager", DEFAULT_PACKAGE_MANAGER)
-    names = [entry["name"] for entry in config.get("packages", []) if entry.get("state", "present") == "present"]
+    entries = config.get("packages", [])
+    if not isinstance(entries, list):
+        raise ValueError("packages は配列で指定してください。")
+    names: List[str] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, Mapping):
+            raise ValueError(f"packages[{index}] はオブジェクトで指定してください。")
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"packages[{index}].name は空でない文字列で指定してください。")
+        state = entry.get("state", "present")
+        if not isinstance(state, str):
+            raise ValueError(f"packages[{index}].state は文字列で指定してください。")
+        if state == "present":
+            names.append(name)
     return package_manager, names
 
 

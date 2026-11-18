@@ -39,10 +39,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     profile = ProjectRegistry().resolve(args.project)
     logger = get_logger(project_id=profile.project_id)
     cfg = load_packages(profile.desired_state_dir)
-    pm, packages = parse_packages_config(cfg)
 
-    # リモートへ何も送る前に、パッケージ名とパッケージマネージャを検証する。
+    # リモートへ何も送る前に、構造・パッケージ名・パッケージマネージャを検証する。
     try:
+        pm, packages = parse_packages_config(cfg)
         validate_package_config(pm, packages)
     except ValueError as exc:
         logger.error("packages.json の内容が不正です: %s", exc)

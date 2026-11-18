@@ -233,6 +233,17 @@ def test_apply_packages_main_returns_one_when_install_fails(project_dir: Path, m
     assert apply_packages.main(["--project", PROJECT]) == 1
 
 
+def test_apply_packages_main_rejects_malformed_entry_before_connecting(
+    project_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(project_dir, "packages.json", {"packages": [{}]})
+    FakeSSHSession.script = []
+    monkeypatch.setattr(apply_packages, "SSHSession", FakeSSHSession)
+
+    assert apply_packages.main(["--project", PROJECT]) == 1
+    assert FakeSSHSession.commands == []
+
+
 def test_apply_packages_main_rejects_hostile_name_before_connecting(
     project_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
