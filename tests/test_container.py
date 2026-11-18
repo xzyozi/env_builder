@@ -200,3 +200,17 @@ def test_normalize_inspection_drops_unsafe_environment_names(project_config: Con
     assert names == ["MODE"]
     assert any("環境変数名" in warning for warning in inspection.run_spec.warnings)
     assert "touch" not in render_run_command(inspection.run_spec)
+
+def test_normalize_inspection_masks_credentials_embedded_in_value(project_config: ContainerProjectConfig) -> None:
+    raw = {
+        "Id": "container-id",
+        "Name": "/app",
+        "Config": {"Env": ["DATABASE_URL=postgres://user:pw123@db/app", "MODE=prod"], "Cmd": ["serve"]},
+        "HostConfig": {},
+    }
+    inspection = normalize_container_inspection(raw, project_config)
+    database = inspection.run_spec.environment[0]
+    assert database.value is None
+    assert database.reference == "${ENVB_CONTAINER_DATABASE_URL}"
+    assert "pw123" not in render_run_command(inspection.run_spec)
+    assert inspection.run_spec.environment[1].value == "prod"

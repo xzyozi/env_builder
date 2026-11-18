@@ -21,6 +21,8 @@ _SECRET_KEY_RE = re.compile(
     r"(?:PASSWORD|PASSWD|TOKEN|SECRET|API[_-]?KEY|PRIVATE[_-]?KEY|CREDENTIAL|AUTH)",
     re.IGNORECASE,
 )
+# 値にURL形式の認証情報(scheme://user:password@host)を含む場合も秘密として扱う。
+_SECRET_VALUE_RE = re.compile(r"://[^/\s:@]+:[^/\s@]*@")
 _SAFE_ENV_NAME_RE = re.compile(r"[^A-Za-z0-9_]+")
 _VALID_ENV_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -110,7 +112,7 @@ def _parse_environment(
         if not _VALID_ENV_NAME_RE.fullmatch(name):
             warnings.append("シェルで安全に扱えない環境変数名をrun候補から除外しました。")
             continue
-        if _SECRET_KEY_RE.search(name):
+        if _SECRET_KEY_RE.search(name) or (value is not None and _SECRET_VALUE_RE.search(value)):
             entries.append(EnvironmentEntry(name=name, reference=_secret_reference(prefix, name)))
         else:
             entries.append(EnvironmentEntry(name=name, value=value))
