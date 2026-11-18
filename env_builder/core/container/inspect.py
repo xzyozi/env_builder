@@ -88,9 +88,7 @@ def _secret_reference(prefix: str, key: str) -> str:
     return f"${{{prefix}{safe_key}}}"
 
 
-def _parse_environment(
-    config: Mapping[str, Any], prefix: str, warnings: List[str]
-) -> Tuple[EnvironmentEntry, ...]:
+def _parse_environment(config: Mapping[str, Any], prefix: str, warnings: List[str]) -> Tuple[EnvironmentEntry, ...]:
     raw_env = config.get("Env", [])
     entries: List[EnvironmentEntry] = []
     if isinstance(raw_env, Mapping):

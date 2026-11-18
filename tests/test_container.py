@@ -215,6 +215,7 @@ def test_runtime_context_warns_on_rootless_and_uid_difference() -> None:
     assert any("rootless/rootful" in warning for warning in warnings)
     assert any("UID" in warning for warning in warnings)
 
+
 def test_normalize_inspection_drops_unsafe_environment_names(project_config: ContainerProjectConfig) -> None:
     raw = {
         "Id": "container-id",
@@ -227,6 +228,7 @@ def test_normalize_inspection_drops_unsafe_environment_names(project_config: Con
     assert names == ["MODE"]
     assert any("環境変数名" in warning for warning in inspection.run_spec.warnings)
     assert "touch" not in render_run_command(inspection.run_spec)
+
 
 def test_normalize_inspection_masks_credentials_embedded_in_value(project_config: ContainerProjectConfig) -> None:
     raw = {
