@@ -46,14 +46,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("%s へ接続して現状を収集します", args.target)
+    failed = []
     with SSHSession(inv, args.target) as ssh:
         for name, cmd in PROBES.items():
             res = ssh.run(cmd)
             dest = out_dir / f"{name}.txt"
             dest.write_text(res.stdout, encoding="utf-8")
             status = "ok" if res.ok else f"exit={res.exit_code}"
+            if not res.ok:
+                failed.append(name)
             logger.info("  %-14s -> %s (%s)", name, dest.name, status)
 
+    if failed:
+        logger.error("収集に失敗したprobeがあります: %s (%s)", ", ".join(failed), out_dir)
+        return 1
     logger.info("収集完了: %s", out_dir)
     return 0
 
