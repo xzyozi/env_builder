@@ -136,7 +136,7 @@ def _mount_from_bind(value: str) -> Optional[MountSpec]:
     if len(parts) < 2:
         return None
     source, destination = parts[0], parts[1]
-    options = {part.lower() for part in parts[2:]}
+    options = {option.lower() for part in parts[2:] for option in part.split(",")}
     return MountSpec(kind="bind", source=source, destination=destination, read_only="ro" in options)
 
 
@@ -158,14 +158,14 @@ def _parse_mounts(raw: Mapping[str, Any], host_config: Mapping[str, Any]) -> Tup
                 if mount:
                     result.append(mount)
 
-    unique: List[MountSpec] = []
-    seen = set()
+    # 同じsource/destinationはMountsとBindsの二重表現とみなし、read-onlyを優先して統合する。
+    merged: dict = {}
     for mount in result:
-        key = (mount.kind, mount.source, mount.destination, mount.read_only)
-        if key not in seen:
-            unique.append(mount)
-            seen.add(key)
-    return tuple(unique)
+        key = (mount.kind, mount.source, mount.destination)
+        previous = merged.get(key)
+        if previous is None or (mount.read_only and not previous.read_only):
+            merged[key] = mount
+    return tuple(merged.values())
 
 
 def _parse_ports(raw: Mapping[str, Any], host_config: Mapping[str, Any]) -> Tuple[PortSpec, ...]:

@@ -146,6 +146,20 @@ def test_render_run_command_keeps_multi_element_entrypoint(project_config: Conta
     assert command.endswith("registry.example/app:stable -- /app/start serve")
 
 
+def test_normalize_inspection_parses_comma_separated_bind_options(project_config: ContainerProjectConfig) -> None:
+    raw = {
+        "Id": "container-id",
+        "Name": "/app",
+        "Mounts": [{"Type": "bind", "Source": "/srv/app", "Destination": "/data", "RW": True}],
+        "Config": {"Cmd": ["serve"]},
+        "HostConfig": {"Binds": ["/srv/app:/data:ro,Z"]},
+    }
+    inspection = normalize_container_inspection(raw, project_config)
+    mounts = inspection.run_spec.mounts
+    assert len(mounts) == 1
+    assert mounts[0].read_only is True
+
+
 def test_snapshot_image_ref_uses_utc_timestamp() -> None:
     timestamp = datetime(2026, 10, 6, 15, 30, tzinfo=timezone.utc)
 
