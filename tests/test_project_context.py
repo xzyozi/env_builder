@@ -27,6 +27,24 @@ def test_new_run_dir_preserves_legacy_path_without_project(tmp_path: Path) -> No
     assert run_dir.name.startswith("exec_dst_")
 
 
+def test_new_run_dir_does_not_reuse_directory_for_same_label(tmp_path: Path) -> None:
+    build_env_dir = tmp_path / "build_env"
+
+    first = new_run_dir(label="build_main", build_env_dir=build_env_dir)
+    second = new_run_dir(label="build_main", build_env_dir=build_env_dir)
+
+    assert first != second
+    assert first.is_dir() and second.is_dir()
+
+
+def test_new_run_dir_confines_label_to_log_root(tmp_path: Path) -> None:
+    build_env_dir = tmp_path / "build_env"
+
+    run_dir = new_run_dir(label="build_x/../../../outside", build_env_dir=build_env_dir)
+
+    assert run_dir.parent == build_env_dir / "logs"
+
+
 def test_work_context_isolated_and_manifest_has_project_id(tmp_path: Path) -> None:
     build_env_dir = tmp_path / "project-a" / "build_env"
 

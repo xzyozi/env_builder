@@ -7,12 +7,16 @@ build ログや実行ログをそこへ集約する。
 from __future__ import annotations
 
 import logging
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
 
 from .config import BUILD_ENV_DIR
 from .project import validate_project_id
+
+_UNSAFE_LABEL_RE = re.compile(r"[^A-Za-z0-9._-]+")
+_MAX_RUN_DIR_ATTEMPTS = 1000
 
 
 def new_run_dir(
@@ -29,9 +33,19 @@ def new_run_dir(
     log_root = build_env_dir / "logs"
     if project_id is not None:
         log_root = log_root / project_id
-    run_dir = log_root / f"{label}_{ts}"
-    run_dir.mkdir(parents=True, exist_ok=True)
-    return run_dir
+    # labelはパス区切りや".."で build_env/logs の外へ出られないよう1要素へ正規化する。
+    safe_label = _UNSAFE_LABEL_RE.sub("_", label) or "run"
+    log_root.mkdir(parents=True, exist_ok=True)
+    # 同一秒・同名の実行でも別ディレクトリになるよう、排他的に作成して連番で避ける。
+    for attempt in range(1, _MAX_RUN_DIR_ATTEMPTS + 1):
+        suffix = "" if attempt == 1 else f"_{attempt}"
+        run_dir = log_root / f"{safe_label}_{ts}{suffix}"
+        try:
+            run_dir.mkdir()
+        except FileExistsError:
+            continue
+        return run_dir
+    raise FileExistsError(f"実行ログ用ディレクトリを作成できません: {safe_label}_{ts}")
 
 
 def get_logger(
