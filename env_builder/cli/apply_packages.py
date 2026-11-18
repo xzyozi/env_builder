@@ -21,6 +21,7 @@ from env_builder.core.logging_utils import get_logger
 from env_builder.core.project import ProjectRegistry
 from env_builder.core.ssh import SSHSession
 from env_builder.ops.packages import (
+    PackageQueryError,
     find_missing,
     install_command,
     install_missing,
@@ -39,10 +40,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     profile = ProjectRegistry().resolve(args.project)
     logger = get_logger(project_id=profile.project_id)
     cfg = load_packages(profile.desired_state_dir)
-    pm, packages = parse_packages_config(cfg)
 
-    # リモートへ何も送る前に、パッケージ名とパッケージマネージャを検証する。
+    # リモートへ何も送る前に、構造・パッケージ名・パッケージマネージャを検証する。
     try:
+        pm, packages = parse_packages_config(cfg)
         validate_package_config(pm, packages)
     except ValueError as exc:
         logger.error("packages.json の内容が不正です: %s", exc)
@@ -52,7 +53,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     logger.info("%s の状態を確認します（package_manager=%s）", args.target, pm)
     with SSHSession(inv, args.target) as ssh:
-        missing = find_missing(ssh, packages)
+        try:
+            missing = find_missing(ssh, packages)
+        except PackageQueryError as exc:
+            logger.error("%s", exc)
+            return 1
 
         if not missing:
             logger.info("すべて導入済み。変更なし（冪等）。")

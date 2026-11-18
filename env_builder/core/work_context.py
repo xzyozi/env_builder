@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-from .config import BUILD_ENV_DIR
-from .project import validate_project_id
+from env_builder.core.config import BUILD_ENV_DIR
+from env_builder.core.project import validate_project_id
 
 if TYPE_CHECKING:
     from .ssh import CommandRunner

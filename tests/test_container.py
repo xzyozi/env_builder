@@ -133,6 +133,33 @@ def test_render_run_command_uses_environment_reference(project_config: Container
     assert "podman run" in command
 
 
+def test_render_run_command_keeps_multi_element_entrypoint(project_config: ContainerProjectConfig) -> None:
+    raw = {
+        "Id": "container-id",
+        "Name": "/app",
+        "Config": {"Entrypoint": ["tini", "--", "/app/start"], "Cmd": ["serve"]},
+        "HostConfig": {},
+    }
+    inspection = normalize_container_inspection(raw, project_config)
+    command = render_run_command(inspection.run_spec)
+    assert "--entrypoint tini" in command
+    assert command.endswith("registry.example/app:stable -- /app/start serve")
+
+
+def test_normalize_inspection_parses_comma_separated_bind_options(project_config: ContainerProjectConfig) -> None:
+    raw = {
+        "Id": "container-id",
+        "Name": "/app",
+        "Mounts": [{"Type": "bind", "Source": "/srv/app", "Destination": "/data", "RW": True}],
+        "Config": {"Cmd": ["serve"]},
+        "HostConfig": {"Binds": ["/srv/app:/data:ro,Z"]},
+    }
+    inspection = normalize_container_inspection(raw, project_config)
+    mounts = inspection.run_spec.mounts
+    assert len(mounts) == 1
+    assert mounts[0].read_only is True
+
+
 def test_snapshot_image_ref_uses_utc_timestamp() -> None:
     timestamp = datetime(2026, 10, 6, 15, 30, tzinfo=timezone.utc)
 
@@ -187,3 +214,32 @@ def test_runtime_context_warns_on_rootless_and_uid_difference() -> None:
 
     assert any("rootless/rootful" in warning for warning in warnings)
     assert any("UID" in warning for warning in warnings)
+
+
+def test_normalize_inspection_drops_unsafe_environment_names(project_config: ContainerProjectConfig) -> None:
+    raw = {
+        "Id": "container-id",
+        "Name": "/app",
+        "Config": {"Env": ["APP_TOKEN;touch /tmp/x;X=s", "MODE=prod"], "Cmd": ["serve"]},
+        "HostConfig": {},
+    }
+    inspection = normalize_container_inspection(raw, project_config)
+    names = [entry.name for entry in inspection.run_spec.environment]
+    assert names == ["MODE"]
+    assert any("環境変数名" in warning for warning in inspection.run_spec.warnings)
+    assert "touch" not in render_run_command(inspection.run_spec)
+
+
+def test_normalize_inspection_masks_credentials_embedded_in_value(project_config: ContainerProjectConfig) -> None:
+    raw = {
+        "Id": "container-id",
+        "Name": "/app",
+        "Config": {"Env": ["DATABASE_URL=postgres://user:pw123@db/app", "MODE=prod"], "Cmd": ["serve"]},
+        "HostConfig": {},
+    }
+    inspection = normalize_container_inspection(raw, project_config)
+    database = inspection.run_spec.environment[0]
+    assert database.value is None
+    assert database.reference == "${ENVB_CONTAINER_DATABASE_URL}"
+    assert "pw123" not in render_run_command(inspection.run_spec)
+    assert inspection.run_spec.environment[1].value == "prod"

@@ -1,20 +1,21 @@
-"""SSHSessionを使うコンテナ調査・image移送処理。"""
+"""リモートセッションを引数で受け取るコンテナ調査・image移送処理。"""
 
 from __future__ import annotations
 
 import json
 import posixpath
-from typing import Any, Dict, Optional
+from typing import Any, Callable, ContextManager, Dict, Optional
 
-from env_builder.core.config import Inventory, load_inventory
 from env_builder.core.container.context import RuntimeContext, normalize_runtime_context
 from env_builder.core.container.engines import EngineAdapter
 from env_builder.core.container.inspect import InspectionError, normalize_container_inspection, parse_inspect_json
 from env_builder.core.container.models import ContainerInspection, ContainerProjectConfig, ImageTransferPlan
 from env_builder.core.logging_utils import get_logger, new_run_dir
 from env_builder.core.project import ProjectProfile
-from env_builder.core.ssh import SSHSession
 from env_builder.core.work_context import WorkContext
+
+# ターゲット名からリモートセッション(コンテキストマネージャ)を開く関数。接続の生成はCLI側が担う。
+SessionOpener = Callable[[str], ContextManager[Any]]
 
 
 class ContainerOperationError(RuntimeError):
@@ -22,13 +23,13 @@ class ContainerOperationError(RuntimeError):
 
 
 def inspect_container(
-    inventory: Inventory,
+    open_session: SessionOpener,
     config: ContainerProjectConfig,
     adapter: EngineAdapter,
     timeout: int = 120,
 ) -> ContainerInspection:
     """移送元のcontainer inspectを読み取り、共通モデルへ変換する。"""
-    with SSHSession(inventory, config.source_target) as ssh:
+    with open_session(config.source_target) as ssh:
         result = ssh.run(adapter.inspect_container_command(config.container), timeout=timeout)
     if not result.ok:
         detail = result.stderr.strip() or result.stdout.strip() or "詳細不明"
@@ -41,13 +42,13 @@ def inspect_container(
 
 
 def inspect_runtime_context(
-    inventory: Inventory,
+    open_session: SessionOpener,
     target: str,
     adapter: EngineAdapter,
     timeout: int = 120,
 ) -> RuntimeContext:
     """SSHユーザーとengine infoからruntime contextを読み取る。"""
-    with SSHSession(inventory, target) as ssh:
+    with open_session(target) as ssh:
         uid_result = ssh.run("id -u", timeout=timeout)
         info_result = ssh.run(adapter.info_command(), timeout=timeout)
     if not uid_result.ok:
@@ -64,13 +65,13 @@ def inspect_runtime_context(
 
 def execute_image_transfer(
     profile: ProjectProfile,
+    open_session: SessionOpener,
     config: ContainerProjectConfig,
     adapter: EngineAdapter,
     plan: ImageTransferPlan,
     timeout: int = 600,
 ) -> Dict[str, Any]:
     """承認済みのimage移送をsrc→手元→dstの順に実行する。"""
-    inventory = load_inventory(profile.inventory_path)
     logger = get_logger(project_id=profile.project_id)
     local_run_dir = new_run_dir(
         label="container_image",
@@ -100,7 +101,7 @@ def execute_image_transfer(
         destination_archive = None
         try:
             logger.info("移送元(%s)でimage archiveを作成します", config.source_target)
-            with SSHSession(inventory, config.source_target) as source_ssh:
+            with open_session(config.source_target) as source_ssh:
                 source_workspace = work.create_remote_workspace(source_ssh, config.source_target, timeout=timeout)
                 source_archive = posixpath.join(source_workspace, plan.archive_name)
                 if plan.mode == "commit":
@@ -119,7 +120,7 @@ def execute_image_transfer(
                 source_workspace = None
 
             logger.info("移送先(%s)へimage archiveを転送します", config.destination_target)
-            with SSHSession(inventory, config.destination_target) as destination_ssh:
+            with open_session(config.destination_target) as destination_ssh:
                 destination_workspace = work.create_remote_workspace(
                     destination_ssh,
                     config.destination_target,
@@ -166,9 +167,11 @@ def execute_image_transfer(
             logger.error("image移送に失敗しました: %s", exc)
         finally:
             if source_workspace:
-                _cleanup_workspace(work, inventory, config.source_target, source_workspace, timeout, logger)
+                _cleanup_workspace(work, open_session, config.source_target, source_workspace, timeout, logger)
             if destination_workspace:
-                _cleanup_workspace(work, inventory, config.destination_target, destination_workspace, timeout, logger)
+                _cleanup_workspace(
+                    work, open_session, config.destination_target, destination_workspace, timeout, logger
+                )
 
     (local_run_dir / "transfer-result.json").write_text(
         json.dumps(result_payload, ensure_ascii=False, indent=2) + "\n",
@@ -196,9 +199,9 @@ def _destination_commands(adapter: EngineAdapter, plan: ImageTransferPlan, archi
     return adapter.load_command(archive_path)
 
 
-def _cleanup_workspace(work, inventory, target: str, path: str, timeout: int, logger) -> None:
+def _cleanup_workspace(work, open_session: SessionOpener, target: str, path: str, timeout: int, logger) -> None:
     try:
-        with SSHSession(inventory, target) as ssh:
+        with open_session(target) as ssh:
             if not work.cleanup_remote_workspace(ssh, target, path, timeout):
                 logger.error("リモート一時作業領域のcleanupに失敗しました: target=%s path=%s", target, path)
     except Exception as exc:

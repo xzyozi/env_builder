@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Sequence
 
-from .config import DESIRED_STATE_DIR, load_json
+from env_builder.core.config import DESIRED_STATE_DIR, load_json
 
 PACKAGES_FILE = "packages.json"
 FILES_FILE = "files.json"

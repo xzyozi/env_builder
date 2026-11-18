@@ -12,6 +12,7 @@ from env_builder.core.ssh import OutputCallback, SSHResult
 from env_builder.ops.packages import (
     DEFAULT_PACKAGE_MANAGER,
     INSTALL_TIMEOUT_SEC,
+    PackageQueryError,
     find_missing,
     install_command,
     install_missing,
@@ -92,6 +93,22 @@ def test_validate_package_config_rejects_unsafe_package_name(name: str) -> None:
         validate_package_config("dnf", ["gcc", name])
 
 
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"packages": "gcc"},
+        {"packages": ["gcc"]},
+        {"packages": [{}]},
+        {"packages": [{"name": ""}]},
+        {"packages": [{"name": 1}]},
+        {"packages": [{"name": "gcc", "state": 1}]},
+    ],
+)
+def test_parse_packages_config_rejects_malformed_structure(config: dict) -> None:
+    with pytest.raises(ValueError):
+        parse_packages_config(config)
+
+
 def test_is_installed_true_when_rpm_exit_code_is_zero() -> None:
     runner = FakeRunner(default=_query_result(True))
 
@@ -103,6 +120,22 @@ def test_is_installed_false_when_rpm_exit_code_is_nonzero() -> None:
     runner = FakeRunner(default=_query_result(False))
 
     assert is_installed(runner, "gcc") is False
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        SSHResult(124, "", "", "timeout"),
+        SSHResult(255, "", "ssh error"),
+        SSHResult(0, "", ""),
+        SSHResult(0, "10\n", ""),
+    ],
+)
+def test_is_installed_raises_when_state_cannot_be_determined(result: SSHResult) -> None:
+    runner = FakeRunner(default=result)
+
+    with pytest.raises(PackageQueryError):
+        is_installed(runner, "gcc")
 
 
 def test_find_missing_returns_only_uninstalled_in_given_order() -> None:

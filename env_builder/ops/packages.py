@@ -20,13 +20,32 @@ DEFAULT_PACKAGE_MANAGER = "dnf"
 INSTALL_TIMEOUT_SEC = 1800
 
 
+class PackageQueryError(RuntimeError):
+    """導入済みかどうかをリモートで確認できなかった場合のエラー。"""
+
+
 def parse_packages_config(config: Mapping[str, Any]) -> Tuple[str, List[str]]:
     """packages.json の内容から、パッケージマネージャ名と導入対象の名前を取り出す。
 
-    `state` が `present`（既定）のものだけを対象にする。値の検証は validate_package_config が行う。
+    `state` が `present`（既定）のものだけを対象にする。構造が不正なら ValueError を送出する。
+    名前の中身の検証は validate_package_config が行う。
     """
     package_manager = config.get("package_manager", DEFAULT_PACKAGE_MANAGER)
-    names = [entry["name"] for entry in config.get("packages", []) if entry.get("state", "present") == "present"]
+    entries = config.get("packages", [])
+    if not isinstance(entries, list):
+        raise ValueError("packages は配列で指定してください。")
+    names: List[str] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, Mapping):
+            raise ValueError(f"packages[{index}] はオブジェクトで指定してください。")
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"packages[{index}].name は空でない文字列で指定してください。")
+        state = entry.get("state", "present")
+        if not isinstance(state, str):
+            raise ValueError(f"packages[{index}].state は文字列で指定してください。")
+        if state == "present":
+            names.append(name)
     return package_manager, names
 
 
@@ -52,9 +71,19 @@ def install_command(package_manager: str, packages: List[str]) -> str:
 
 
 def is_installed(runner: CommandRunner, pkg: str) -> bool:
-    """パッケージが導入済みか。rpm の終了コード（`echo $?` の出力）が 0 なら導入済み。"""
+    """パッケージが導入済みか。rpm の終了コード（`echo $?` の出力）が 0 なら導入済み、1 なら未導入。
+
+    コマンドが正常終了せず、出力も 0 / 1 の最終行でない場合は、未導入と区別できないため
+    PackageQueryError を送出する（確認できないまま install へ進まないようにする）。
+    """
     res = runner.run(rpm_query_command(pkg))
-    return res.stdout.strip().endswith("0")
+    lines = res.stdout.strip().splitlines()
+    code = lines[-1].strip() if lines else ""
+    if not res.ok or code not in ("0", "1"):
+        raise PackageQueryError(
+            f"パッケージの導入状態を確認できません: {pkg} (status={res.status}, exit={res.exit_code})"
+        )
+    return code == "0"
 
 
 def find_missing(runner: CommandRunner, packages: List[str]) -> List[str]:

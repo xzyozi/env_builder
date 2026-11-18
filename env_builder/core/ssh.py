@@ -31,8 +31,8 @@ try:
 except ImportError as e:  # pragma: no cover - 依存未導入時の明確なエラー
     raise ImportError("paramiko が必要です。`uv sync` もしくは `uv add paramiko` で導入してください。") from e
 
-from .config import Inventory, ServerSpec
-from .host_keys import configure_host_keys
+from env_builder.core.config import Inventory, ServerSpec
+from env_builder.core.host_keys import configure_host_keys
 
 logger = logging.getLogger("env_builder")
 
@@ -40,8 +40,8 @@ logger = logging.getLogger("env_builder")
 # stdout 末尾に "logout"、stderr に "tset: terminal attributes: ..." が
 # 必ず混じる。build の成否判定を誤らせるノイズなので除去する。
 # ここは「行そのものがノイズと一致する場合のみ」除去し、正規の出力は残す。
-_NOISE_STDOUT_PREFIXES = ("logout",)
-_NOISE_STDERR_SUBSTRINGS = ("tset: terminal attributes",)
+_NOISE_STDOUT_LINES = ("logout",)
+_NOISE_STDERR_PREFIXES = ("tset: terminal attributes",)
 
 
 # keepalive の送出間隔（秒）。OpenSSH の ServerAliveInterval に相当する。
@@ -88,14 +88,14 @@ class CommandRunner(Protocol):
     ) -> "SSHResult": ...
 
 
-def _strip_shell_noise(text: str, patterns_prefix=(), patterns_substr=()) -> str:
+def _strip_shell_noise(text: str, exact_lines=(), prefixes=()) -> str:
     """ログインシェル由来のノイズ行だけを取り除く。"""
     kept = []
     for line in text.splitlines():
         stripped = line.strip()
-        if any(stripped == p or stripped.startswith(p) for p in patterns_prefix):
+        if stripped in exact_lines:
             continue
-        if any(s in line for s in patterns_substr):
+        if any(stripped.startswith(p) for p in prefixes):
             continue
         kept.append(line)
     return "\n".join(kept)
@@ -208,8 +208,8 @@ def _pump(channel, collector: _OutputCollector, timeout: float) -> str:
 
 def _build_result(collector: _OutputCollector, exit_code: int, status: str) -> SSHResult:
     # ログインシェル由来のノイズ（logout / tset）を除去してから返す。
-    out = _strip_shell_noise(collector.text("stdout"), patterns_prefix=_NOISE_STDOUT_PREFIXES)
-    err = _strip_shell_noise(collector.text("stderr"), patterns_substr=_NOISE_STDERR_SUBSTRINGS)
+    out = _strip_shell_noise(collector.text("stdout"), exact_lines=_NOISE_STDOUT_LINES)
+    err = _strip_shell_noise(collector.text("stderr"), prefixes=_NOISE_STDERR_PREFIXES)
     return SSHResult(exit_code=exit_code, stdout=out, stderr=err, status=status)
 
 

@@ -21,7 +21,10 @@ _SECRET_KEY_RE = re.compile(
     r"(?:PASSWORD|PASSWD|TOKEN|SECRET|API[_-]?KEY|PRIVATE[_-]?KEY|CREDENTIAL|AUTH)",
     re.IGNORECASE,
 )
+# 値にURL形式の認証情報(scheme://user:password@host)を含む場合も秘密として扱う。
+_SECRET_VALUE_RE = re.compile(r"://[^/\s:@]+:[^/\s@]*@")
 _SAFE_ENV_NAME_RE = re.compile(r"[^A-Za-z0-9_]+")
+_VALID_ENV_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 class InspectionError(ValueError):
@@ -85,7 +88,7 @@ def _secret_reference(prefix: str, key: str) -> str:
     return f"${{{prefix}{safe_key}}}"
 
 
-def _parse_environment(config: Mapping[str, Any], prefix: str) -> Tuple[EnvironmentEntry, ...]:
+def _parse_environment(config: Mapping[str, Any], prefix: str, warnings: List[str]) -> Tuple[EnvironmentEntry, ...]:
     raw_env = config.get("Env", [])
     entries: List[EnvironmentEntry] = []
     if isinstance(raw_env, Mapping):
@@ -104,7 +107,10 @@ def _parse_environment(config: Mapping[str, Any], prefix: str) -> Tuple[Environm
             name, value = item, None
         if not name:
             continue
-        if _SECRET_KEY_RE.search(name):
+        if not _VALID_ENV_NAME_RE.fullmatch(name):
+            warnings.append("シェルで安全に扱えない環境変数名をrun候補から除外しました。")
+            continue
+        if _SECRET_KEY_RE.search(name) or (value is not None and _SECRET_VALUE_RE.search(value)):
             entries.append(EnvironmentEntry(name=name, reference=_secret_reference(prefix, name)))
         else:
             entries.append(EnvironmentEntry(name=name, value=value))
@@ -128,7 +134,7 @@ def _mount_from_bind(value: str) -> Optional[MountSpec]:
     if len(parts) < 2:
         return None
     source, destination = parts[0], parts[1]
-    options = {part.lower() for part in parts[2:]}
+    options = {option.lower() for part in parts[2:] for option in part.split(",")}
     return MountSpec(kind="bind", source=source, destination=destination, read_only="ro" in options)
 
 
@@ -150,14 +156,14 @@ def _parse_mounts(raw: Mapping[str, Any], host_config: Mapping[str, Any]) -> Tup
                 if mount:
                     result.append(mount)
 
-    unique: List[MountSpec] = []
-    seen = set()
+    # 同じsource/destinationはMountsとBindsの二重表現とみなし、read-onlyを優先して統合する。
+    merged: dict = {}
     for mount in result:
-        key = (mount.kind, mount.source, mount.destination, mount.read_only)
-        if key not in seen:
-            unique.append(mount)
-            seen.add(key)
-    return tuple(unique)
+        key = (mount.kind, mount.source, mount.destination)
+        previous = merged.get(key)
+        if previous is None or (mount.read_only and not previous.read_only):
+            merged[key] = mount
+    return tuple(merged.values())
 
 
 def _parse_ports(raw: Mapping[str, Any], host_config: Mapping[str, Any]) -> Tuple[PortSpec, ...]:
@@ -257,7 +263,7 @@ def normalize_container_inspection(
         workdir=_first_text(config, "WorkingDir", "working_dir"),
         entrypoint=_as_tuple(config.get("Entrypoint")),
         command=_as_tuple(config.get("Cmd")) or _as_tuple(raw.get("Args")),
-        environment=_parse_environment(config, project_config.secret_env_prefix),
+        environment=_parse_environment(config, project_config.secret_env_prefix, warnings),
         mounts=_parse_mounts(raw, host_config),
         ports=_parse_ports(raw, host_config),
         network=network_mode or _first_text(network, "NetworkMode"),

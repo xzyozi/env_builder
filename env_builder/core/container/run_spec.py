@@ -74,5 +74,7 @@ def render_run_command(spec: ContainerRunSpec) -> str:
         _append_option(parts, "--restart", spec.restart)
 
     parts.append(shlex.quote(spec.image))
+    # entrypointの2要素目以降はimage名の後、commandの前に置く(engineの仕様)。
+    parts.extend(shlex.quote(argument) for argument in spec.entrypoint[1:])
     parts.extend(shlex.quote(argument) for argument in spec.command)
     return " ".join(parts)
