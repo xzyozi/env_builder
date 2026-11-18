@@ -288,6 +288,15 @@ def test_noise_lines_are_still_removed(clock: FakeClock) -> None:
     assert result.stderr == "real error"
 
 
+def test_noise_removal_keeps_lines_that_only_resemble_noise(clock: FakeClock) -> None:
+    channel = FakeChannel(
+        [[("out", b"logout count=3\nlogout\n"), ("err", b"warn: tset: terminal attributes seen\n")]]
+    )
+    result = _session(channel, clock).run("cmd", timeout=10)
+    assert result.stdout == "logout count=3"
+    assert result.stderr == "warn: tset: terminal attributes seen"
+
+
 def test_ssh_result_ok_requires_completed_status() -> None:
     assert SSHResult(0, "", "").ok
     assert not SSHResult(0, "", "", status=STATUS_TIMEOUT).ok
