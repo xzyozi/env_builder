@@ -1,7 +1,12 @@
 # 全体フロー（案件の開始から環境整備まで）
 
-env_builder で「src を参考に dst の環境を整える」作業を、案件の開始から終了まで通して示す。
-個々のコマンドは `scripts.md`、各手順の詳細は `skills/` を参照する。ここは**順序と分岐の地図**である。
+env_builder で「複数参照元（`src` / `src2` 等）を参考に構築先（`dst` 等）の環境を整える」作業を、
+案件の開始から終了まで一気通貫で示す。個々のコマンドは `scripts.md`、各手順の詳細は `skills/` を
+参照する。ここは**順序と分岐の地図**である。
+
+親エージェントが全体を一気通貫で主導し、初回セットアップ（`project-initialization`）や大規模調査は
+必要に応じてサブエージェントへ委譲する。完全自動化は行わず、途中の障害や発見で道筋が変わる際は
+ユーザーと壁打ちして合意を取りながら進める。
 
 ## 全体像
 
@@ -9,19 +14,19 @@ env_builder で「src を参考に dst の環境を整える」作業を、案�
 flowchart TD
     A[1. 初期設定 project-initialization] --> B[2. 利用者が実値を記入]
     B --> C[3. 疎通確認 connectivity-check]
-    C --> D[4. src 現状収集 probe-src]
+    C --> D[4. 参照元現状収集 probe-src]
     D --> E[5. 環境整備ループ env-provisioning]
     E --> F[6. 終了処理とコミット判断]
 ```
 
 | フェーズ          | 担当                                     | 入口                            | 主な成果物                                                                                  |
 | ----------------- | ---------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| 1. 初期設定       | エージェント（壁打ち）+ `init_config.py` | `skills/project-initialization` | `inventory/servers.json`、`build_env/set_env.bat`、`desired_state/git.json`（Git 案件のみ） |
+| 1. 初期設定       | 親Agent（または初期化Sub）+ `init_config.py` | `skills/project-initialization` | `inventory/servers.json`、`build_env/set_env.bat`、`desired_state/git.json`（Git 案件のみ） |
 | 2. 実値の記入     | **利用者**                               | 本書                            | 記入済みの設定・環境変数                                                                    |
-| 3. 疎通確認       | エージェント                             | `skills/connectivity-check`     | 接続可否と切り分け結果                                                                      |
-| 4. src 現状収集   | エージェント                             | `skills/probe-src`              | `build_env/` 配下の収集結果                                                                 |
-| 5. 環境整備ループ | エージェント                             | `skills/env-provisioning`       | dst の環境、`build_env/logs/`                                                               |
-| 6. 終了処理       | エージェント + 利用者                    | `rules/operation-safety.md`     | 一時領域の削除、コミット判断                                                                |
+| 3. 疎通確認       | 親エージェント                           | `skills/connectivity-check`     | 接続可否とターゲット境界（Read-Only/Writable）の分類                                        |
+| 4. 参照元現状収集 | 親エージェント（大規模時は調査Sub）      | `skills/probe-src`              | `build_env/` 配下の収集結果（`src`, `src2` 等）                                             |
+| 5. 環境整備ループ | 親エージェント                           | `skills/env-provisioning`       | 宣言化（`desired_state`）、dst の環境、事前退避、`build_env/logs/`                          |
+| 6. 終了処理       | 親エージェント + 利用者                  | `rules/operation-safety.md`     | 一時領域・退避物の整理、コミット判断                                                        |
 
 ## 再開時の判定（セッションをまたぐとき）
 
@@ -129,24 +134,30 @@ Git の扱いは案件ごとに異なるため、既定値は置かず、初期�
 既存の `set_env.bat` は `init_config.py` の `--force` では上書きされない。上書きは
 `--force-credentials`（上書き前に `.bak` へ退避）で、別途承認を取って行う。
 
-## 3. 疎通確認
+## 3. 疎通確認とターゲット分類
 
 `check_connectivity.py` で、踏み台越しに各サーバへ接続できるかを確認する。失敗した場合は
 出力から、踏み台・認証・`proxy_jump` のどれが原因かを切り分け、記入内容を見直す。
+あわせて `servers.json` と対話内容から「参照元（Read-Only）」と「構築先（Writable）」を明示分類する。
 
-## 4. src 現状収集
+## 4. 参照元（src / src2 等）の現状収集
 
-`probe_src.py` で src の OS、カーネル、パッケージ、リポジトリ設定を読み取る。src は参照専用
-なので、状態を変える操作はしない。収集結果から dst との差分を見積もる。
+`probe_src.py --target <ref>` で各参照元の OS、カーネル、パッケージ、リポジトリ設定を読み取る。
+参照元は書き込み厳禁なので、状態を変える操作はしない。収集結果（複数参照元がある場合は差分マージ）
+から dst との差分を見積もる。大規模調査は調査サブエージェントへ委譲してよい。
 
-## 5. 環境整備ループ
+## 5. 環境整備ループ（5フェーズ制御サイクル）
 
-`env-provisioning` に従い、次を通るまで繰り返す。
+`env-provisioning` に従い、5フェーズ（探索・収集 → 統合・宣言化 → 計画・承認 → 順次適用 →
+検証・自律復旧）のサイクルを通るまで回す。
 
-1. 対象作業を実行する（`run_build.py` など）。
-2. 失敗ログを読み、不足を特定する（`remote-investigation`）。
-3. 不足に応じて整える（`apply_packages.py` / `sync_files.py` / `sync_tree.py`）。
-4. 再実行する。
+1. 調査結果を元に環境固有値（IP・パス等）の置換計画を立て、`desired_state/` へ宣言化する。
+   `remote_exec.py` による `dst` への直接変更は行わない。
+2. 競合解決・固有値置換リスト・事前退避計画についてユーザーと壁打ちし合意を取る。
+3. 依存順（例: DB → App）に沿って、既存ファイル変更前に `cp -a` 等で事前退避（`.d/` 回避含む）を
+   実行した上で `apply_packages.py` / `sync_*` / `run_build.py` 等を適用する。
+4. ログ・終了コード・`manifest.json` を自己解釈し、動作確認する。失敗や破壊検知時は
+   事前退避から即座にロールバックし、原因特定と別アプローチ（Plan B）の相談を行う。
 
 同じ対処を 2 回繰り返しても解決しない場合は、対症療法をやめて根本原因を診断する。
 `run_build.py` は終了コードが 0 でも失敗していることがあるため、stderr のエラー痕跡も確認する。
@@ -155,6 +166,7 @@ Git の扱いは案件ごとに異なるため、既定値は置かず、初期�
 
 - 作業用の一時領域（`/tmp/env_builder-<work-id>-XXXXXX/` とローカルの `build_env/work/<work-id>/`）が
   残っていないことを確認する。永続配置（`neo_app/src`、`lib` など）は削除対象ではない。
+- `dst` 上に取得した事前退避（`.bak` や専用退避ディレクトリ）を保持するか整理するかをユーザーと確認する。
 - timeout や中断があった場合は、リモートにプロセスが残っていないかを読み取りで確認する。
 - 設定実体、認証情報、OSS、作業成果物はコミットしない。コミットするのは `.agent/`、
   `env_builder/`、`tests/`、`*.sample.*` などのツール本体だけである（`rules/git-workflow.md`）。
@@ -164,6 +176,8 @@ Git の扱いは案件ごとに異なるため、既定値は置かず、初期�
 `rules/operation-safety.md` が正本である。要点だけ再掲する。
 
 - sudo / su は使わない。root が要る操作は root 定義で直接ログインする。
-- src は参照専用。root 定義での接続は、理由を示して確認を取った場合に限る。
+- 参照元（Read-Only 分類ターゲット）は書き込み禁止。読み取り・コピー取得に限っては root 定義
+  （`src_root` 等）も確認なしで使用可。
+- `dst` への変更は必ず `desired_state/` 経由で行い、上書き前には事前退避を取る。
 - 破壊的・不可逆な操作は、影響を提示して応答を待つ。
 - 秘密値を会話・コマンドライン・ログに出さない。

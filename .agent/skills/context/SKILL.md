@@ -14,7 +14,7 @@ allowed-tools: [Read, Grep, Glob]
 リポジトリルートから相対で、以下を順に読む。
 
 1. `.agent/instructions.md` — エージェントの役割・基本姿勢・案件メタデータの置き場所
-2. `.agent/rules/operation-safety.md` — 運用の鉄則（sudo/su 禁止、src に root 禁止、OSS 非保存）
+2. `.agent/rules/operation-safety.md` — 運用の鉄則（sudo/su 禁止、参照元書込禁止、探索と適用の分離、事前退避）
 3. `.agent/rules/git-workflow.md` — ブランチ、コミット、機密・成果物の扱い
 4. `.agent/rules/coding-style.md` — Python / uv / ruff・mypy・pytest / core の責務
 5. `.agent/rules/project-management.md` — project profile、`--project`、agent規約の適用範囲

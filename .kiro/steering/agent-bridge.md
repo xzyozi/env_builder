@@ -13,7 +13,9 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
 - 基本指示・役割: `.agent/instructions.md`
 - 運用の鉄則（最重要）: `.agent/rules/operation-safety.md`
   - sudo / su は使わない。root が要る操作は root ログイン定義を使う。
-  - src は参照専用。root 定義での接続は、理由を明示して確認を取った場合に限る。
+  - 参照元（Read-Only 分類ターゲット）は書き込み禁止。読み取り・コピー取得に限っては root 定義も確認なしで使用可。
+  - 探索と適用の分離: `remote_exec` による直接変更は禁止し、必ず `desired_state/` 経由で変更する。
+  - 事前退避の義務化: `dst` の上書き・変更前には必ず権限ごと事前退避（`cp -a` 等）を取る。
   - 承認が必要な操作は、内容と影響を提示して応答を待つ。
   - OSS・認証情報・作業成果物はコミットしない。
 - Git 運用: `.agent/rules/git-workflow.md`
@@ -26,12 +28,12 @@ Kiro 固有の場所には規約本体を置かず、このブリッジから `.
 - 各種ワークフロー: `.agent/skills/` 配下の各 `SKILL.md`
   （context / project-initialization / issue-tracking / connectivity-check / probe-src /
   remote-investigation / sync-artifacts / container / env-provisioning）
-- 初期設定Agent: `.kiro/agents/project-initializer.md`
+- 初期設定用サブエージェント/対話定義: `.kiro/agents/project-initializer.md`
 - 初期設定手順: `.agent/skills/project-initialization/SKILL.md`
 
-初期設定を始めるときは、KiroのAgent一覧から `project-initializer` を選択する。
-このAgentは壁打ち・計画・明示承認・既存CLIへの委譲だけを行い、疎通確認や環境変更は
-ユーザーの別承認後に対応する。
+基本は親エージェントが初期化から環境整備（5フェーズ制御サイクル）までを一気通貫で主導する。
+初期壁打ちだけを独立して行いたい場合やサブエージェントとして切り出す場合は `project-initializer` を利用でき、
+初期化後に疎通確認や環境整備（`env-provisioning`）へ繋ぐ。
 
 以下の3ファイルは作業の前提となるため、このsteeringに本文を取り込む。
 

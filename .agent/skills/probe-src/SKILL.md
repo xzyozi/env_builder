@@ -14,14 +14,15 @@ allowed-tools: [Bash, Read, Grep]
 
 ## 前提
 
-- src は**参照専用・読み取り専用**。root で入らない（operation-safety 準拠）。
+- 参照元（`src`, `src2` 等）は**参照専用・読み取り専用**。変更操作は禁止。読み取り・コピー取得に限っては root 定義も確認なしで使用可（operation-safety 準拠）。
 
 ## 手順
 
-1. src の現状を収集する。
+1. 参照元ごとに現状を収集する（複数参照元がある場合は順次指定する）。
 
    ```powershell
    uv run python scripts/probe_src.py --target src
+   uv run python scripts/probe_src.py --target src2
    ```
 
    収集項目は `os_release` / `kernel` / `rpm_packages` / `dnf_repolist`。
