@@ -1,96 +1,144 @@
 ---
 name: env-provisioning
-description: src を参考に dst の環境を整える中核ループ。ビルド疎通・コンテナ構築など作業全般の汎用手順
-allowed-tools: [Bash, Read, Grep, Glob]
+description: 複数参照元(src/src2等)を参考にdstの環境を一気通貫で整備・復旧する5フェーズ制御ループ
+allowed-tools: [Bash, Read, Edit, Grep, Glob]
 ---
 
-# 環境整備ループ（中核）
+# 環境整備ループ（一気通貫・5フェーズ制御サイクル）
 
-「src を参考に dst の環境を整える」作業全般の汎用手順。**ビルドに限らず**、コンテナ環境の
-構築など「dst をあるべき状態に近づける」作業はこのループに乗せる。個別のスクリプト操作は
-専用スキル（connectivity-check / probe-src / remote-investigation / sync-artifacts /
-container）に委ね、ここでは**全体の順序と判断のループ**を示す。
+「複数参照元（`src` / `src2` 等）を参考に構築先（`dst` 等）の環境を整える」作業全般の汎用手順。
+ビルド疎通、パッケージ導入、設定配置、コンテナ構築など、**初期化後の環境構築から検証・復旧までを
+一気通貫で主導する**ための制御サイクルである。
+
+完全自動化（ワンショット無人実行）は行わない前提に立ち、途中の発見や障害に応じて道筋を変えながら、
+節目ではユーザーと壁打ち・合意を取りつつゴールへ向かう（適応型オーケストレーション）。
 
 各スクリプトの標準の実行形式は `uv run python -m env_builder <command> ...` で、
 `uv run python scripts/<command>.py ...` は同じコマンドを呼ぶ互換ラッパー（詳細は
 `.agent/references/scripts.md`）。以下の例は互換ラッパー表記で記す。
 
-## 進め方（探索 → 計画 → 実装）
+## 5フェーズ基本動作サイクル
 
 ```text
-- [ ] 0. 案件メタデータを確認（desired_state / inventory を読む）
-- [ ] 1. 疎通確認（connectivity-check）
-- [ ] 2. src 現状収集（probe-src）
-- [ ] 3. 対象作業を実行（build なら run_build.py）
-- [ ] 4. 失敗ログを解釈し、不足を特定（remote-investigation）
-- [ ] 5. 環境を整える（apply_packages / sync-artifacts）
-- [ ] 6. 再実行して通るまで 3〜5 を繰り返す
+- [ ] Phase 0: 案件把握とターゲット境界の明示分類（Read-Only / Writable）
+- [ ] Phase 1: 探索・収集（probe_src / remote_exec 読み取り）
+- [ ] Phase 2: 統合・宣言化（差分マージ / 固有値変換計画 / desired_state 更新）
+- [ ] Phase 3: 計画・承認（競合解決 / 置換リスト / 事前退避・破壊的操作の合意）
+- [ ] Phase 4: 順次適用（依存順制御 / 事前退避実行 / apply・sync・build）
+- [ ] Phase 5: 検証・自律復旧（ログ自己解釈 / 疎通確認 / 異常時ロールバック）
 ```
 
-## Step 0: 案件メタデータの確認
+---
 
-作業対象は案件ごとに異なる。まず Git 管理外のメタデータを読み、今回の対象を把握する。
+## Phase 0: 案件メタデータとターゲット境界の分類
 
-- プロジェクト: `--project <id>` を指定し、選択したProjectProfileを確認する。未指定時はlegacy経路。
-- 接続対象: 選択したprofileの `inventory/servers.json`（キー名 src / dst / dst_root / bastion 等）
-- あるべき状態: 選択したprofileの `desired_state/`（build なら `build_targets.local.json`、パッケージなら
-  `packages.json`、ファイル対応なら `files.json`）
-- 作業成果物・ログ: 選択したprofileの `build_env/`
+作業開始時、まず Git 管理外のメタデータとプロジェクト構成を確認する。
 
-手順そのものはこのスキルにあり、**何を作るか**はメタデータ側にある。ビルドでもコンテナ
-構築でも、この分離で同じループを使い回す。
+- プロジェクト: `--project <id>` で選択された `ProjectProfile` を確認（未指定時は legacy 経路）。
+- 接続対象: `inventory/servers.json` を確認。
+- **ターゲット境界（Read-Only / Writable）の明示分類**:
+  - キー名やスキーマで硬直的に縛らず、コメント（`//`）や対話内容から
+    **「参照元（Read-Only）」と「構築先（Writable）」を必ず分類・明示する**（`src`, `src2` 等の
+    `src*` は慣例的なヒントとして扱う。曖昧ならユーザーに確認する）。
+  - 参照元と分類したターゲットへは変更系コマンドを決して実行しない。
+- あるべき状態: `desired_state/`（`build_targets.local.json`、`packages.json`、`files.json` 等）。
+- 過去の履歴・課題: `build_env/logs/` および `docs/issues/INDEX.md`（project 指定時）。
 
-## Step 1-2: 疎通と現状把握
+※未初期化の場合は `project-initialization`（または初期化サブエージェント）で枠組みを整えた後、
+同じ親エージェントの流れで Phase 1 以降へ一気通貫に進む。
 
-1. `connectivity-check` で src / dst に接続できることを確認する。
-2. `probe-src` で src の現状を収集し、dst との差分の見当をつける。
+---
 
-## Step 3: 対象作業を実行
+## Phase 1: 探索・収集（複数参照元対応・読み取り専用）
 
-- **ビルド疎通の場合**:
+1. `connectivity-check` で対象サーバ群の疎通を確認する。
+2. `probe-src` で参照元ごとに構成を収集する（例: `--target src`、`--target src2`）。
+3. 必要な詳細情報（設定ファイル内容、ライブラリ依存、対象作業の現状）を
+   `remote-investigation`（`remote_exec.py`）で読み取り調査する。
+   - **重要**: 大規模な調査や複数サーバの膨大な差分抽出でコンテキストを消費する場合は、
+     調査タスクをサブエージェントに委譲し、要約結果を受け取って次フェーズへ進む。
+   - 状態を変えるコマンドを `remote_exec.py` でアドホックに実行しない。
 
-  ```powershell
-  uv run python scripts/run_build.py --target <name>
-  ```
+---
 
-  `build_targets.local.json` の定義に従い dst でビルドし、`build_env/logs/build_<name>_<ts>/`
-  に stdout/stderr が保存される。
-- **コンテナの解析・image 移送の場合**: `container`（container.py）で inspect 解析と
-  移送計画を出し、明示承認後に image を移送する。
-- **その他の作業の場合**: 対象に応じたコマンドを `remote-investigation`（remote_exec.py）
-  や専用スクリプトで実行する。状態を変える操作は operation-safety に従う。
+## Phase 2: 統合・宣言化（差分マージ・環境変換・`desired_state` 生成）
 
-## Step 4: 失敗の解釈（重要）
+探索結果を解釈し、ローカルの宣言ファイルへ落とし込む。
 
-- `run_build.py` は `typechk.sh` 生成のサブシェル経由のため、**終了コードが 0 でも失敗**の
-  ことがある。stderr のエラー痕跡マーカー（`致命的エラー` / `fatal error` / `make: ***` /
-  `: error:` / `undefined reference` / `ld returned` 等）でも成否を判定する。
-- 保存された `stepNN.stderr.log` を読み、不足しているヘッダ・ライブラリ・共通モジュール・
-  パッケージを特定する。必要なら `remote-investigation` でリモートを追加調査する。
+1. **複数参照元のマージと競合抽出**:
+   - `src` と `src2` 等から異なるパッケージ版数や設定が得られた場合、役割分担や統合案を整理する。
+   - 自動判断できない競合・仕様判断は「未決事項」として記録し、Phase 3 でユーザーへ確認する。
+2. **環境固有値（IP・ホスト名・パス・UID）の読み替え計画**:
+   - 参照元から取得する設定ファイルに固有値が含まれる場合は、`dst` 向けに置換すべき箇所を検査し、
+     置換リストを作成する（会話や記録に実IP・機密を出さないようキー名等で抽象化する）。
+3. **宣言ファイル（`desired_state/`）への書き起こし**:
+   - `dst` への変更内容は、必ず `packages.json` / `files.json` / `build_targets.local.json` 等へ
+     書き起こす。
 
-## Step 5: 環境を整える
+---
 
-特定した不足に応じて、対応する専用スクリプト / スキルを選ぶ。
+## Phase 3: 計画・承認（壁打ちとゲート管理）
 
-- **パッケージ不足** → `apply_packages.py --check` で差分確認 → 適用（dst は root ログイン前提）。
-- **ファイル / ディレクトリ不足** → `sync-artifacts`（sync_files / sync_tree）で src から配置。
-  root 配置先は `--dst` に root 定義を使う（昇格しない）。
-- **ビルド定義の問題**（Makefile 等） → 調査の上で修正方針を立てる。
+適用を実行する前に、以下を提示してユーザーと合意を取る。
 
-## Step 6: 再実行ループ
+- 複数参照元間の競合点および方針転換（Plan B 採用など）の壁打ち確認。
+- 設定ファイルの環境固有値置換リストの確認。
+- 事前退避（バックアップ）の保存先と方針。
+- 複数 `dst` がある場合の適用順序（例: DB/共有基盤 → アプリ）。
+- 要承認操作（破壊的操作、コンテナ image 移送、`--force` 上書き等）の明示確認。
 
-環境を整えたら Step 3 を再実行し、通るまで 3〜5 を繰り返す。同じ対処を 2 回繰り返しても
-解決しない場合は、対症療法をやめて根本原因を診断し、別アプローチに切り替える。
+※通常の `dst` 構築（承認済みの範囲の適用や再ビルド）は確認待ちで止まらずに進めるが、
+道筋が変わる分岐点では必ず合意を取る。
+
+---
+
+## Phase 4: 順次適用（依存順オーケストレーション・事前退避・実行）
+
+1. **依存順の制御**: 複数構築先（例: `dst_db` → `dst_app`）がある場合、依存関係の上流から
+   順に適用し、区切りごとに疎通や稼働を確認してから次へ進む。
+2. **事前退避の実行（義務）**: 既存ファイル・ディレクトリを上書き／変更する前に、必ず `dst` 上で
+   `cp -a` 等により権限・所有者ごと退避を取る。
+   - `conf.d/` 等ワイルドカード全読み込みの対象では、二重読み込みを防ぐため同階層に `.bak` を
+     置かず、影響外の専用退避パス（例: `/var/tmp/env_builder_bak_<id>/`）へ退避する。
+3. **スクリプト実行**:
+   - パッケージ導入: `apply_packages.py --check` で差分確認後に適用（root 定義使用）。
+   - ファイル配置: `sync-artifacts`（`sync_files.py` / `sync_tree.py`）。固有値置換が必要な場合は
+     手元ステージングで置換・検査した上で `--upload-only` 等で配置する。
+   - ビルド疎通: `run_build.py --target <name>`。
+   - コンテナ解析・移送: `container` スキル（明示承認後のみ移送）。
+
+---
+
+## Phase 5: 検証・自律復旧（ログ自己解釈とロールバック）
+
+1. **ログと終了コードの自己解釈**:
+   - `run_build.py` はサブシェル経由のため**終了コードが 0 でも失敗**していることがある。
+     `build_env/logs/` 配下の `stepNN.stderr.log` のエラー痕跡（`致命的エラー` / `fatal error` /
+     `make: ***` / `: error:` / `undefined reference` / `ld returned` 等）や `manifest.json` を
+     必ず精査する。
+2. **事後検証**:
+   - `remote_exec.py`（読み取り専用）でサービス稼働、ビルド成果物、接続性などを確認する。
+3. **自律復旧（壊したら戻す）**:
+   - 既存環境を壊した・検証に失敗したと判断した場合は、同じ操作を続けず、まず Phase 4 で取った
+     事前退避から即座に元の状態へ書き戻す（ロールバック）。
+   - 何が起き、どこまで戻せたかを調査し、ユーザーへ報告・相談する。
+4. **ループと軌道修正（Plan B への切り替え）**:
+   - 不足が特定できたら Phase 2 へ戻り `desired_state` を更新して再試行する。
+   - **同じ対処を 2 回繰り返しても解決しない場合は、対症療法をやめて根本原因を診断し、
+     別アプローチ（Plan B）をユーザーと壁打ちして道筋を切り替える。**
+
+---
 
 ## 鉄則（常時）
 
 - sudo / su は使わない。root が要る操作は root ログイン定義を使う。
-- src は書き込み禁止（読み取りと、コピーによる取得のみ）。OSS アーカイブは恒久保存しない。
-- dst は基本的に制約なし。確認待ちで止まらずに構築を進める。ただし、既存の環境を壊したら、
-  まず元に戻し、調査結果を添えて引き継ぐ。取り返しのつかない広範囲の操作は事前に確認する。
+- 参照元（Read-Only 分類ターゲット）は書き込み禁止。OSS アーカイブは恒久保存しない。
+- `remote_exec` によるアドホック直接変更は禁止し、必ず `desired_state` 経由で適用する。
   （詳細は `.agent/rules/operation-safety.md`）
 
 ## 参照
 
+- 運用安全ルール: `.agent/rules/operation-safety.md`
 - 各スクリプト仕様: `.agent/references/scripts.md`
-- 個別操作: `.agent/skills/{connectivity-check,probe-src,remote-investigation,sync-artifacts}/SKILL.md`
+- 全体フロー: `.agent/references/workflow.md`
+- 個別操作: `.agent/skills/{connectivity-check,probe-src,remote-investigation,sync-artifacts,container}/SKILL.md`

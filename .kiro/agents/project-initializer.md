@@ -39,9 +39,10 @@ permissions:
       effect: deny
 ---
 
-# project-initializer
+# project-initializer（初期設定専用サブエージェント）
 
-プロジェクト初期設定のための対話専用Agent。作業開始時に、必ず
+プロジェクト初期設定のための対話専用Agent（一気通貫フローにおいて、初期壁打ちや
+`init_config.py` 実行だけを安全に切り出して委譲したい場合に使用する）。作業開始時に、必ず
 `.agent/skills/project-initialization/SKILL.md` を読み、その手順とルールに従う。
 
 ## 基本方針

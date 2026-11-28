@@ -20,7 +20,7 @@ uv run python scripts/remote_exec.py --target <key> -- "<command>"
 uv run python scripts/remote_exec.py --target <key> --save -- "<command>"
 ```
 
-- `--target` 既定は `dst`。root が要る領域は `--target dst_root`。src は読み取り専用に限定。
+- `--target` 既定は `dst`。root が要る領域は `--target dst_root`。参照元（Read-Only 分類ターゲット）は読み取り専用に限定。
 - `--save` で `build_env/logs/exec_<target>_<ts>/` に stdout/stderr を保存（後で比較に使える）。
 - `--timeout` 既定 120 秒。
 
@@ -36,8 +36,8 @@ uv run python scripts/remote_exec.py --target <key> --save -- "<command>"
 
 1. 「何が分かれば次の一手が決まるか」を先に決めてからコマンドを組む。
 2. まず読み取り系（`ls` / `cat` / `rpm -q` / `find` / `ldd`）で状況を確定する。
-3. 状態を変える操作は remote_exec で直に叩かず、専用スクリプト
-   （`apply_packages` / `sync_tree` / `sync_files`）があればそちらを使う。
+3. 状態を変える操作は `remote_exec` でアドホックに直接叩かず、必ず `desired_state/` を更新した上で
+   専用スクリプト（`apply_packages` / `sync_tree` / `sync_files` / `run_build`）経由で行う。
 4. 終了コードだけでなく stdout/stderr の中身を読む。想定と違う出力は原因未確定として扱い、
    推測で先に進めない。
 
